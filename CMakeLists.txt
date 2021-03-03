@@ -167,6 +167,12 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(carta_backend ${LINK_LIBS})
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
+install(TARGETS carta_backend
+    RUNTIME DESTINATION bin)
+
+install(PROGRAMS "${CMAKE_SOURCE_DIR}/scripts/carta"
+    DESTINATION bin)
+
 # Tests
 option(test "Build tests." OFF)
 if (test)
