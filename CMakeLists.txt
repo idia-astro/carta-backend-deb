@@ -4,6 +4,10 @@ project(carta_backend)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_INCLUDE_DIRECTORIES_BEFORE ON)
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/third-party/install)
+
+include(uWebSockets)
+
 # Enable OpenMP if package is found
 find_package(OpenMP)
 if (OPENMP_CXX_FOUND)
@@ -95,7 +99,6 @@ set(LINK_LIBS
         carta-scripting-grpc
         ${PROTOBUF_LIBRARY}
         fmt
-        uWS
         ssl
         crypto
         z
