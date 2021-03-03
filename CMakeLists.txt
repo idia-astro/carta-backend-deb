@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_INCLUDE_DIRECTORIES_BEFORE ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/install)
-
 include(uWebSockets)
 
 # Enable OpenMP if package is found
@@ -92,12 +91,15 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     set(LINK_LIBS ${LINK_LIBS} stdc++fs)
 endif ()
 
+include_directories(${CMAKE_SOURCE_DIR}/uWebSockets/src)
+install_uWebSockets()
 
 set(LINK_LIBS
         ${LINK_LIBS}
         carta-protobuf
         carta-scripting-grpc
         ${PROTOBUF_LIBRARY}
+        uWebSockets
         fmt
         ssl
         crypto
