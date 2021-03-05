@@ -1,5 +1,5 @@
 carta-backend (1.4.1-1~focal1) focal; urgency=medium
 
-  * Initial build of release version.
+  * Initial build of release version with static dependency on uWebSockets.
 
  -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 03 Mar 2021 15:35:09 +0200
