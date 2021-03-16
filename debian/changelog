@@ -1,3 +1,15 @@
+carta-backend (1.4.1-1~focal3) focal; urgency=medium
+
+  * Rebuild to add conflict with development version, which no longer renames executables and paths.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 15:55:32 +0200
+
+carta-backend (1.4.1-1~focal2) focal; urgency=medium
+
+  * Rebuild for new PPA with revised version numbering.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 12:00:38 +0200
+
 carta-backend (1.4.1-1~focal1) focal; urgency=medium
 
   * Initial build of release version with static dependency on uWebSockets.
