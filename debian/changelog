@@ -1,3 +1,9 @@
+carta-backend (1.4.1-1~bionic1) bionic; urgency=medium
+
+  * Backport to Bionic.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 19 Mar 2021 15:16:25 +0200
+
 carta-backend (1.4.1-1~focal3) focal; urgency=medium
 
   * Rebuild to add conflict with development version, which no longer renames executables and paths.
