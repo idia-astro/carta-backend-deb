@@ -1,3 +1,9 @@
+carta-backend (1.4.1-1~bionic2) bionic; urgency=medium
+
+  * Fixed incorrect (unversioned) casacore dependencies.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 30 Mar 2021 01:05:42 +0200
+
 carta-backend (1.4.1-1~bionic1) bionic; urgency=medium
 
   * Backport to Bionic.
