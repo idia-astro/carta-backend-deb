@@ -1,3 +1,9 @@
+carta-backend (1.4.1+fixed1-1~bionic2) bionic; urgency=medium
+
+  * Rebuild with updated carta-casacore package dependencies.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 09 Apr 2021 13:58:52 +0200
+
 carta-backend (1.4.1+fixed1-1~bionic1) bionic; urgency=medium
 
   * Backported default image for use by the controller.
