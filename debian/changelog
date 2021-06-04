@@ -1,4 +1,4 @@
-carta-backend (2.0.0-1~focal1) focal; urgency=medium
+carta-backend (2.0.0-1~bionic1) bionic; urgency=medium
 
   * v2.0: Feature enhancement and codebase maintenance (released 7th June 2021) 
   * Multi-profile plot with the spectral profiler
@@ -16,17 +16,29 @@ carta-backend (2.0.0-1~focal1) focal; urgency=medium
 
  -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 01 Jun 2021 11:16:26 +0200
 
-carta-backend (1.4.1+fixed1-1~focal2) focal; urgency=medium
+carta-backend (1.4.1+fixed1-1~bionic2) bionic; urgency=medium
 
   * Rebuild with updated carta-casacore package dependencies.
 
  -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 09 Apr 2021 13:58:52 +0200
 
-carta-backend (1.4.1+fixed1-1~focal1) focal; urgency=medium
+carta-backend (1.4.1+fixed1-1~bionic1) bionic; urgency=medium
 
   * Backported default image for use by the controller.
 
- -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 31 Mar 2021 13:55:00 +0200
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 31 Mar 2021 14:03:46 +0200
+
+carta-backend (1.4.1-1~bionic2) bionic; urgency=medium
+
+  * Fixed incorrect (unversioned) casacore dependencies.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 30 Mar 2021 01:05:42 +0200
+
+carta-backend (1.4.1-1~bionic1) bionic; urgency=medium
+
+  * Backport to Bionic.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 19 Mar 2021 15:16:25 +0200
 
 carta-backend (1.4.1-1~focal3) focal; urgency=medium
 
