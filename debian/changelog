@@ -14,7 +14,7 @@ carta-backend (2.0.0-1~bionic1) bionic; urgency=medium
   * Marker-based catalog rendering and performance enhancement
   * New deployment modes
 
- -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 01 Jun 2021 11:16:26 +0200
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 04 Jun 2021 11:22:13 +0200
 
 carta-backend (1.4.1+fixed1-1~bionic2) bionic; urgency=medium
 
