@@ -1,0 +1,35 @@
+carta-backend (2.0.0-1~focal1) focal; urgency=medium
+
+  * 2.0.0 release.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 01 Jun 2021 11:16:26 +0200
+
+carta-backend (1.4.1+fixed1-1~focal2) focal; urgency=medium
+
+  * Rebuild with updated carta-casacore package dependencies.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 09 Apr 2021 13:58:52 +0200
+
+carta-backend (1.4.1+fixed1-1~focal1) focal; urgency=medium
+
+  * Backported default image for use by the controller.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 31 Mar 2021 13:55:00 +0200
+
+carta-backend (1.4.1-1~focal3) focal; urgency=medium
+
+  * Rebuild to add conflict with development version, which no longer renames executables and paths.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 15:55:32 +0200
+
+carta-backend (1.4.1-1~focal2) focal; urgency=medium
+
+  * Rebuild for new PPA with revised version numbering.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 12:00:38 +0200
+
+carta-backend (1.4.1-1~focal1) focal; urgency=medium
+
+  * Initial build of release version with static dependency on uWebSockets.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 03 Mar 2021 15:35:09 +0200

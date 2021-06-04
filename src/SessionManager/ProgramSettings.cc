@@ -288,9 +288,9 @@ end.
     applyOptionalArgument(grpc_port, "grpc_port", result);
 
     applyOptionalArgument(omp_thread_count, "omp_threads", result);
+
     applyOptionalArgument(wait_time, "exit_timeout", result);
     applyOptionalArgument(init_wait_time, "initial_timeout", result);
-
     applyOptionalArgument(idle_session_wait_time, "idle_timeout", result);
 
     applyOptionalArgument(browser, "browser", result);
