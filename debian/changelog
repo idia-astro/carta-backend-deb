@@ -1,3 +1,9 @@
+carta-backend (2.0.0-1~bionic2) bionic; urgency=medium
+
+  * Rebuild with new carta-casacore.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 10 Mar 2022 11:01:24 +0200
+
 carta-backend (2.0.0-1~bionic1) bionic; urgency=medium
 
   * v2.0: Feature enhancement and codebase maintenance (released 7th June 2021) 
