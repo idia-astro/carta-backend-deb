@@ -1,3 +1,9 @@
+carta-backend (2.0.0-1~bionic4) bionic; urgency=medium
+
+  * Rebuild with new carta-casacore.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 12 Apr 2022 14:42:33 +0200
+
 carta-backend (2.0.0-1~bionic3) bionic; urgency=medium
 
   * Patched cmake configuration to detect arm64 architecture correctly on Ubuntu.
