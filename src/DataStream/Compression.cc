@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -17,10 +17,10 @@
 #include <x86intrin.h>
 #endif
 
-using namespace std;
+namespace carta {
 
-int Compress(vector<float>& array, size_t offset, vector<char>& compression_buffer, size_t& compressed_size, uint32_t nx, uint32_t ny,
-    uint32_t precision) {
+int Compress(std::vector<float>& array, size_t offset, std::vector<char>& compression_buffer, size_t& compressed_size, uint32_t nx,
+    uint32_t ny, uint32_t precision) {
     int status = 0;     /* return value: 0 = success */
     zfp_type type;      /* array scalar type */
     zfp_field* field;   /* array meta data */
@@ -59,15 +59,42 @@ int Compress(vector<float>& array, size_t offset, vector<char>& compression_buff
     return status;
 }
 
+int Decompress(std::vector<float>& array, std::vector<char>& compression_buffer, int nx, int ny, int precision) {
+    int status = 0;    /* return value: 0 = success */
+    zfp_type type;     /* array scalar type */
+    zfp_field* field;  /* array meta data */
+    zfp_stream* zfp;   /* compressed stream */
+    bitstream* stream; /* bit stream to write to or read from */
+    type = zfp_type_float;
+    array.resize(nx * ny); // resize the resulting data
+    field = zfp_field_2d(array.data(), type, nx, ny);
+    zfp = zfp_stream_open(NULL);
+
+    zfp_stream_set_precision(zfp, precision);
+    stream = stream_open(compression_buffer.data(), compression_buffer.size());
+    zfp_stream_set_bit_stream(zfp, stream);
+    zfp_stream_rewind(zfp);
+
+    if (!zfp_decompress(zfp, field)) {
+        status = 1;
+    }
+
+    zfp_field_free(field);
+    zfp_stream_close(zfp);
+    stream_close(stream);
+
+    return status;
+}
+
 // Removes NaNs from an array and returns run-length encoded list of NaNs
-vector<int32_t> GetNanEncodingsSimple(vector<float>& array, int offset, int length) {
+std::vector<int32_t> GetNanEncodingsSimple(std::vector<float>& array, int offset, int length) {
     int32_t prev_index = offset;
     bool prev = false;
-    vector<int32_t> encoded_array;
+    std::vector<int32_t> encoded_array;
     // Find first non-NaN number in the array
     float prev_valid_num = 0;
     for (auto i = offset; i < offset + length; i++) {
-        if (!isnan(array[i])) {
+        if (!std::isnan(array[i])) {
             prev_valid_num = array[i];
             break;
         }
@@ -77,7 +104,7 @@ vector<int32_t> GetNanEncodingsSimple(vector<float>& array, int offset, int leng
     // the width and height of the image, and look for neighbouring values in vertical and horizontal directions,
     // but this is only an issue with NaNs right at the edge of images.
     for (auto i = offset; i < offset + length; i++) {
-        bool current = isnan(array[i]);
+        bool current = std::isnan(array[i]);
         if (current != prev) {
             encoded_array.push_back(i - prev_index);
             prev_index = i;
@@ -93,15 +120,15 @@ vector<int32_t> GetNanEncodingsSimple(vector<float>& array, int offset, int leng
     return encoded_array;
 }
 
-vector<int32_t> GetNanEncodingsBlock(vector<float>& array, int offset, int w, int h) {
+std::vector<int32_t> GetNanEncodingsBlock(std::vector<float>& array, int offset, int w, int h) {
     // Generate RLE NaN list
     int length = w * h;
     int32_t prev_index = offset;
     bool prev = false;
-    vector<int32_t> encoded_array;
+    std::vector<int32_t> encoded_array;
 
     for (auto i = offset; i < offset + length; i++) {
-        bool current = isnan(array[i]);
+        bool current = std::isnan(array[i]);
         if (current != prev) {
             encoded_array.push_back(i - prev_index);
             prev_index = i;
@@ -119,12 +146,12 @@ vector<int32_t> GetNanEncodingsBlock(vector<float>& array, int offset, int w, in
                 int valid_count = 0;
                 float sum = 0;
                 // Limit the block size when at the edges of the image
-                int block_width = min(4, w - i);
-                int block_height = min(4, h - j);
+                int block_width = std::min(4, w - i);
+                int block_height = std::min(4, h - j);
                 for (int x = 0; x < block_width; x++) {
                     for (int y = 0; y < block_height; y++) {
                         float v = array[block_start + (y * w) + x];
-                        if (!isnan(v)) {
+                        if (!std::isnan(v)) {
                             valid_count++;
                             sum += v;
                         }
@@ -137,7 +164,7 @@ vector<int32_t> GetNanEncodingsBlock(vector<float>& array, int offset, int w, in
                     for (int x = 0; x < block_width; x++) {
                         for (int y = 0; y < block_height; y++) {
                             float v = array[block_start + (y * w) + x];
-                            if (isnan(v)) {
+                            if (std::isnan(v)) {
                                 array[block_start + (y * w) + x] = average;
                             }
                         }
@@ -206,3 +233,5 @@ void EncodeIntegers(std::vector<int32_t>& array, bool strided) {
         _mm_store_si128((__m128i*)&array[i], vals);
     }
 }
+
+} // namespace carta

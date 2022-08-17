@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -17,13 +17,15 @@
 #include "BasicStatsCalculator.h"
 #include "Histogram.h"
 
-using namespace carta;
+namespace carta {
 
-void CalcBasicStats(const std::vector<float>& data, BasicStats<float>& stats);
+void CalcBasicStats(BasicStats<float>& stats, const float* data, const size_t data_size);
 
-carta::Histogram CalcHistogram(int num_bins, const BasicStats<float>& stats, const std::vector<float>& data);
+Histogram CalcHistogram(int num_bins, const BasicStats<float>& stats, const float* data, const size_t data_size);
 
 bool CalcStatsValues(std::map<CARTA::StatsType, std::vector<double>>& stats_values, const std::vector<CARTA::StatsType>& requested_stats,
     const casacore::ImageInterface<float>& image, bool per_channel = true);
+
+} // namespace carta
 
 #endif // CARTA_BACKEND_IMAGESTATS_STATSCALCULATOR_H_

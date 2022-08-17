@@ -1,10 +1,13 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 #include "ListProgressReporter.h"
+#include "Util/Message.h"
+
+using namespace carta;
 
 ListProgressReporter::ListProgressReporter(size_t total_steps, std::function<void(CARTA::ListProgress)> progress_callback)
     : _total_steps(total_steps),
@@ -21,11 +24,6 @@ int ListProgressReporter::UpdateProgress() {
 }
 
 void ListProgressReporter::ReportFileListProgress(const CARTA::FileListType& file_list_type) {
-    CARTA::ListProgress progress;
-    progress.set_file_list_type(file_list_type);
-    progress.set_total_count(_total_steps);
-    progress.set_checked_count(_num_of_steps_done);
-    progress.set_percentage(_percentage);
-    _progress_callback(progress);
+    _progress_callback(Message::ListProgress(file_list_type, _total_steps, _num_of_steps_done, _percentage));
     _start_time = std::chrono::high_resolution_clock::now();
 }

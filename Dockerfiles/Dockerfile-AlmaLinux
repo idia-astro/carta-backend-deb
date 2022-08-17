@@ -1,0 +1,29 @@
+FROM almalinux:latest
+
+# Install the required packages
+RUN \
+  dnf -y install epel-release && \
+  dnf -y install 'dnf-command(config-manager)' && \
+  dnf -y config-manager --set-enabled powertools && \
+  dnf -y update && \
+  dnf -y install autoconf automake bison blas-devel bzip2 cfitsio-devel cmake curl-devel flex gcc \
+         gcc-c++ git git-lfs gsl-devel hdf5-devel lapack-devel \
+         libtool libxml2-devel libzstd-devel libuuid-devel make openssl-devel protobuf-devel \
+         python36 python3-pip pugixml-devel readline-devel subversion \
+         wcslib-devel wget zlib-devel libuuid-devel zfp-devel && \
+  pip3 install numpy astropy
+
+# Get carta dependencies from the cartavis rpm repository
+RUN \
+  curl https://packages.cartavis.org/cartavis-el8.repo --output /etc/yum.repos.d/cartavis.repo && \
+  yum -y install carta-casacore-devel gtest-devel gmock-devel fits2idia measures-data
+
+# Forward port so that the webapp can properly access it
+# from outside of the container
+EXPOSE 3002
+
+ENV HOME /root
+WORKDIR /root
+
+# overwrite this with 'CMD []' in a dependent Dockerfile
+CMD ["bash"]

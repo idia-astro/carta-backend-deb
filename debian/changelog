@@ -1,3 +1,42 @@
+carta-backend (3.0.0-1~bionic1) bionic; urgency=medium
+
+  * Bumped version to 3.0.0.
+  * Added
+    - Added support for image fitting with field of view (#150).
+    - List frequency and velocity in file info for single channel image (#1152).
+  * Changed
+    - Enhanced image fitting performance by switching the solver from qr to cholesky (#1114).
+    - Made HTTP server return a different error code for disabled features (#1115).
+    - Removed Splatalogue interaction from backend codebase and removed dependency on libcurl (#994).
+    - Use wrappers to construct protocol buffer messages where possible (#960).
+    - Change the time zone in log messages from local to UTC (#1151).
+    - Refactor the timer for performance measurements (#1180).
+  * Fixed
+    - Stopped calculating per-cube histogram unnecessarily when switching to a new Stokes value (#1013).
+    - Ensured that HTTP server returns error codes correctly (#1011).
+    - Fixed crash problems for compressed FITS files (#999 and #1014).
+    - Fixed the incorrect STD for images with large pixel values (#1069).
+    - Fixed incorrect spectral profiles for computed stokes (#1122). 
+    - Fixed the problem of recognizing FITS gzip files from ALMA Science Archive (#1130).
+    - Fixed slow loading of FITS image with large number of HISTORY headers (#1063).
+    - Fixed the DS9 import bug with region properties (#1129).
+    - Fixed incorrect pixel number when fitting image with nan pixels (#1128).
+    - Fixed errors on loading images via LEL (#1144).
+    - Fixed the DS9 import bug with no header line (#1064).
+    - Fixed incorrect matched region pixel count (#1108).
+    - Fixed the getstat error on generated image (#1148).
+    - Fixed file info hang when a CASA image is locked (#578).
+    - Fixed region export failure when no write permission (#1133).
+    - Fixed HTTP response codes when returning response to PUT requests (#1157).
+    - Fixed the problem of one-pixel position offset for DS9 regions projections (#1138).
+    - Fixed crash problems during moments ICD tests (#1070).
+    - Fixed response when importing region file fails by catching exception (#1160).
+    - Fixed the crash when trying to load an unsupported image file (#1161).
+    - Fixed including directories in region file list (#1159).
+    - Fixed issue where NaN data was read incorrectly from a compressed FITS .fz image (#1143).
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 17 Aug 2022 12:01:04 +0200
+
 carta-backend (2.0.0-1~bionic4) bionic; urgency=medium
 
   * Rebuild with new carta-casacore.

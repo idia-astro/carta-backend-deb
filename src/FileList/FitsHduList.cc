@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -10,17 +10,24 @@
 
 #include <fitsio.h>
 
+#include <casacore/casa/Exceptions/Error.h>
+
 #include "../Logger/Logger.h"
-#include "../Util.h"
+#include "Util/File.h"
+
+using namespace carta;
 
 FitsHduList::FitsHduList(const std::string& filename) {
     _filename = filename;
 }
 
 void FitsHduList::GetHduList(std::vector<std::string>& hdu_list, std::string& error) {
-    // Returns list of hdu num and ext name for primary array and image extensions
+    // Returns list of hdu num and ext name for primary array and image extensions.
+
+    // DO NOT USE for compressed FITS, fits_open_file decompresses entire file.
     if (IsCompressedFits(_filename)) {
-        error = "Compressed FITS gz/bz format not supported yet.";
+        error = "Should use CompressedFits for HDU header map.";
+        spdlog::debug(error);
         return;
     }
 

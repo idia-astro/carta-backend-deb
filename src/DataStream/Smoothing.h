@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -22,6 +22,8 @@
 #endif
 
 #define SMOOTHING_TEMP_BUFFER_SIZE_MB 200
+
+namespace carta {
 
 #ifdef __AVX__
 #define SIMD_WIDTH 8
@@ -72,4 +74,7 @@ bool BlockSmoothAVX(const float* src_data, float* dest_data, int64_t src_width, 
 
 void NearestNeighbor(const float* src_data, float* dest_data, int64_t src_width, int64_t dest_width, int64_t dest_height, int64_t x_offset,
     int64_t y_offset, int smoothing_factor);
+
+} // namespace carta
+
 #endif // CARTA_BACKEND__SMOOTHING_H_

@@ -1,9 +1,6 @@
 [submodule "carta-protobuf"]
 	path = carta-protobuf
 	url = https://github.com/CARTAvis/carta-protobuf.git
-[submodule "carta-scripting-grpc"]
-	path = carta-scripting-grpc
-	url = https://github.com/CARTAvis/carta-scripting-grpc
 [submodule "uWebSockets"]
 	path = third-party/uWebSockets
 	url = https://github.com/uNetworking/uWebSockets.git
@@ -19,3 +16,6 @@
 [submodule "third-party/json"]
 	path = third-party/json
 	url = https://github.com/astoeckel/json.git
+[submodule "test/image-generator"]
+	path = third-party/image-generator
+	url = https://github.com/idia-astro/image-generator

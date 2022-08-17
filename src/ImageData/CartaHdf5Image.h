@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -30,6 +30,12 @@ public:
     CartaHdf5Image(const CartaHdf5Image& other);
     ~CartaHdf5Image() override;
 
+    // Function to open a CARTA HDF5 image
+    static casacore::LatticeBase* OpenCartaHdf5Image(const casacore::String& name, const casacore::MaskSpecifier& spec);
+
+    // Register the open function in casacore::ImageOpener
+    static void RegisterOpenFunction();
+
     inline const casacore::CountedPtr<casacore::HDF5Group> Group() const {
         return _lattice.group();
     };
@@ -57,6 +63,10 @@ public:
     casacore::Lattice<bool>& pixelMask() override;
     casacore::Bool doGetMaskSlice(casacore::Array<bool>& buffer, const casacore::Slicer& section) override;
 
+    casacore::Vector<casacore::String> FitsHeaderStrings();
+
+    casacore::DataType internalDataType();
+
 private:
     // Function to return the internal HDF5File object to the RegionHandlerHDF5
     inline static const casacore::CountedPtr<casacore::HDF5File>& GetHdf5File(void* image) {
@@ -65,12 +75,12 @@ private:
     }
 
     void SetUpImage();
-    casacore::Vector<casacore::String> Hdf5ToFITSHeaderStrings();
 
     casacore::MaskSpecifier _mask_spec;
     casacore::HDF5Lattice<float> _lattice;
     casacore::Lattice<bool>* _pixel_mask;
     casacore::IPosition _shape;
+    casacore::Vector<casacore::String> _fits_header_strings;
 };
 
 } // namespace carta

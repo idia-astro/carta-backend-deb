@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -15,24 +15,30 @@
 
 #include "RegionHandler.h"
 
+// CARTA default region style
+#define REGION_COLOR "#2EE6D6"
+#define REGION_DASH_LENGTH 2
+#define REGION_LINE_WIDTH 2
+
 namespace carta {
 
 class RegionImportExport {
 public:
-    RegionImportExport() {}
-    virtual ~RegionImportExport() {}
-
     // Import constructor: file_id to add to RegionState
-    RegionImportExport(casacore::CoordinateSystem* image_coord_sys, const casacore::IPosition& image_shape, int file_id);
+    RegionImportExport(std::shared_ptr<casacore::CoordinateSystem> image_coord_sys, const casacore::IPosition& image_shape, int file_id);
     // Export constructor
-    RegionImportExport(casacore::CoordinateSystem* image_coord_sys, const casacore::IPosition& image_shape);
+    RegionImportExport(std::shared_ptr<casacore::CoordinateSystem> image_coord_sys, const casacore::IPosition& image_shape);
+
+    virtual ~RegionImportExport() = default;
 
     // Retrieve imported regions as RegionState vector
     std::vector<RegionProperties> GetImportedRegions(std::string& error);
 
-    // Add region to export: RegionState for pixel coords in reference image,
-    // Quantities for world coordinates or for either coordinate type applied to another image
+    // Add region to export:
+    // RegionState control points for pixel coords in reference image
     virtual bool AddExportRegion(const RegionState& region_state, const RegionStyle& region_style) = 0;
+
+    // Record for LCRegion in pixel coords
     bool AddExportRegion(
         const RegionState& region_state, const RegionStyle& region_style, const casacore::RecordInterface& region_record, bool pixel_coord);
 
@@ -51,19 +57,20 @@ protected:
     virtual void ParseRegionParameters(
         std::string& region_definition, std::vector<std::string>& parameters, std::unordered_map<std::string, std::string>& properties);
 
-    virtual bool AddExportRegion(const RegionState& region_state, const RegionStyle& region_style,
+    // Quantities for converted control points
+    virtual bool AddExportRegion(CARTA::RegionType region_type, const RegionStyle& region_style,
         const std::vector<casacore::Quantity>& control_points, const casacore::Quantity& rotation) = 0;
 
     // Convert wcs -> pixel
     bool ConvertPointToPixels(
         std::string& region_frame, std::vector<casacore::Quantity>& point, casacore::Vector<casacore::Double>& pixel_coords);
-    double WorldToPixelLength(casacore::Quantity world_length, unsigned int pixel_axis);
+    double WorldToPixelLength(casacore::Quantity input, unsigned int pixel_axis);
 
     // Format hex string e.g. "10161a" -> "#10161A"
     std::string FormatColor(const std::string& color);
 
     // Image info to which region is applied
-    casacore::CoordinateSystem* _coord_sys;
+    std::shared_ptr<casacore::CoordinateSystem> _coord_sys;
     casacore::IPosition _image_shape;
 
     // For import
@@ -73,6 +80,9 @@ protected:
     std::vector<RegionProperties> _import_regions;
     std::vector<std::string> _export_regions;
 
+    std::unordered_map<CARTA::RegionType, std::string> _region_names = {
+        {CARTA::RegionType::LINE, "line"}, {CARTA::RegionType::POLYLINE, "polyline"}, {CARTA::RegionType::POLYGON, "polygon"}};
+
 private:
     // Return control_points and qrotation Quantity for region type
     bool ConvertRecordToPoint(
@@ -81,7 +91,7 @@ private:
         const casacore::RecordInterface& region_record, bool pixel_coord, std::vector<casacore::Quantity>& control_points);
     bool ConvertRecordToEllipse(const RegionState& region_state, const casacore::RecordInterface& region_record, bool pixel_coord,
         std::vector<casacore::Quantity>& control_points, casacore::Quantity& qrotation);
-    bool ConvertRecordToPolygon(
+    bool ConvertRecordToPolygonLine(
         const casacore::RecordInterface& region_record, bool pixel_coord, std::vector<casacore::Quantity>& control_points);
 };
 

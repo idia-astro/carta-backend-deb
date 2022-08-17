@@ -1,53 +1,23 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 #include <gtest/gtest.h>
 
+#include "ImageGenerators/ImageMoments.h"
 #include "Logger/Logger.h"
-#include "Moment/ImageMoments.h"
-#include "Util.h"
 
 #include <casacore/images/Images/PagedImage.h>
 #include <imageanalysis/ImageAnalysis/ImageMoments.h>
 
-#ifdef _BOOST_FILESYSTEM_
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
-#else
-#include <filesystem>
-namespace fs = std::filesystem;
-#endif
+#include "CommonTestUtilities.h"
 
-using namespace std;
 using namespace carta;
 
-class MomentTest : public ::testing::Test {
+class MomentTest : public ::testing::Test, public FileFinder {
 public:
-    static bool OpenImage(std::shared_ptr<casacore::ImageInterface<float>>& image, const std::string& filename, uInt hdu_num = 0) {
-        bool image_ok(false);
-        try {
-            casacore::ImageOpener::ImageTypes image_types = casacore::ImageOpener::imageType(filename);
-            switch (image_types) {
-                case casacore::ImageOpener::AIPSPP:
-                    image = std::make_shared<casacore::PagedImage<float>>(filename);
-                    image_ok = true;
-                    break;
-                case casacore::ImageOpener::FITS:
-                    image = std::make_shared<casacore::FITSImage>(filename, 0, hdu_num);
-                    image_ok = true;
-                    break;
-                default:
-                    break;
-            }
-        } catch (const AipsError& x) {
-            spdlog::error("Error on opening the file: {}", x.getMesg());
-        }
-        return image_ok;
-    }
-
     static void GetImageData(std::shared_ptr<const casacore::ImageInterface<casacore::Float>> image, std::vector<float>& data) {
         // Get spectral and stokes indices
         casacore::CoordinateSystem coord_sys = image->coordinates();
@@ -158,25 +128,25 @@ public:
 };
 
 TEST_F(MomentTest, CheckConsistency) {
-    string file_name = "data/images/fits/M17_SWex_unittest.fits";
+    std::string file_path = FitsImagePath("M17_SWex_unittest.fits");
     std::shared_ptr<casacore::ImageInterface<float>> image;
     int moment_axis(2);
 
-    if (OpenImage(image, file_name)) {
+    if (OpenImage(image, file_path)) {
         GenerateMoments(image, moment_axis);
     } else {
-        spdlog::warn("Fail to open the file {}! Ignore the Moment test.", file_name);
+        spdlog::warn("Fail to open the file {}! Ignore the Moment test.", file_path);
     }
 }
 
 TEST_F(MomentTest, CheckConsistencyForBeamConvolutions) {
-    string file_name = "data/images/fits/small_perplanebeam.fits";
+    std::string file_path = FitsImagePath("small_perplanebeam.fits");
     std::shared_ptr<casacore::ImageInterface<float>> image;
     int moment_axis(2);
 
-    if (OpenImage(image, file_name)) {
+    if (OpenImage(image, file_path)) {
         GenerateMoments(image, moment_axis);
     } else {
-        spdlog::warn("Fail to open the file {}! Ignore the Moment test.", file_name);
+        spdlog::warn("Fail to open the file {}! Ignore the Moment test.", file_path);
     }
 }
