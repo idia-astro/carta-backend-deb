@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -7,6 +7,7 @@
 #include "Hdf5Loader.h"
 
 #include "../Logger/Logger.h"
+#include "Util/Image.h"
 
 namespace carta {
 
@@ -18,15 +19,18 @@ void Hdf5Loader::OpenFile(const std::string& hdu) {
 
     // Open hdf5 image with specified hdu
     if (!_image || (selected_hdu != _hdu)) {
-        _image.reset(new CartaHdf5Image(_filename, DataSetToString(FileInfo::Data::Image), selected_hdu));
+        auto hdf5_image = new CartaHdf5Image(_filename, DataSetToString(FileInfo::Data::Image), selected_hdu);
+        _image.reset(hdf5_image);
         if (!_image) {
             throw(casacore::AipsError("Error opening image"));
         }
 
         _hdu = selected_hdu;
-
-        // We need this immediately because dataSetToString uses it to find the name of the swizzled dataset
-        _num_dims = _image->shape().size();
+        _image_shape = _image->shape();
+        _num_dims = _image_shape.size();
+        _has_pixel_mask = _image->hasPixelMask();
+        _coord_sys = std::shared_ptr<casacore::CoordinateSystem>(static_cast<casacore::CoordinateSystem*>(_image->coordinates().clone()));
+        _data_type = hdf5_image->internalDataType();
 
         // Load swizzled image lattice
         if (HasData(FileInfo::Data::SWIZZLED)) {
@@ -34,7 +38,34 @@ void Hdf5Loader::OpenFile(const std::string& hdu) {
                 new casacore::HDF5Lattice<float>(casacore::CountedPtr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
                     DataSetToString(FileInfo::Data::SWIZZLED), selected_hdu));
         }
+
+        // save the data layout and known mips
+        auto dset = hdf5_image->Lattice().array();
+        _layout = H5Pget_layout(H5Dget_create_plist(dset->getHid()));
+
+        if (HasData("MipMaps/DATA")) {
+            casacore::HDF5Group mipmap_group(hdf5_image->Group()->getHid(), "MipMaps/DATA", true);
+            for (auto& name : casacore::HDF5Group::linkNames(mipmap_group)) {
+                std::regex re("DATA_XY_(\\d+)");
+                std::smatch match;
+                if (std::regex_match(name, match, re) && match.size() > 1) {
+                    _mipmaps[std::stoi(match.str(1))] = std::unique_ptr<casacore::HDF5Lattice<float>>(
+                        new casacore::HDF5Lattice<float>(casacore::CountedPtr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
+                            fmt::format("MipMaps/DATA/{}", name), selected_hdu));
+                }
+            }
+        }
     }
+}
+
+bool Hdf5Loader::HasData(std::string ds_name) const {
+    if (!_image) {
+        return false;
+    }
+
+    CartaHdf5Image* hdf5_image = dynamic_cast<CartaHdf5Image*>(_image.get());
+    auto group_ptr = hdf5_image->Group();
+    return casacore::HDF5Group::exists(*group_ptr, ds_name);
 }
 
 // We assume that the main image dataset is always loaded and therefore available.
@@ -50,26 +81,24 @@ bool Hdf5Loader::HasData(FileInfo::Data ds) const {
         case FileInfo::Data::XYZW:
             return _num_dims >= 4;
         case FileInfo::Data::MASK:
-            return ((_image != nullptr) && _image->hasPixelMask());
+            return _has_pixel_mask;
         default:
-            auto group_ptr = _image->Group();
-            std::string data(DataSetToString(ds));
-            if (data.empty()) {
+            std::string ds_name(DataSetToString(ds));
+            if (ds_name.empty()) {
                 return false;
             }
-            return casacore::HDF5Group::exists(*group_ptr, data);
+            return HasData(ds_name);
     }
-}
-
-// TODO: when we fix the typing issue, this should probably return any dataset again, for consistency.
-typename Hdf5Loader::ImageRef Hdf5Loader::GetImage() {
-    // returns opened image as ImageInterface*
-    return _image.get();
 }
 
 casacore::Lattice<float>* Hdf5Loader::LoadSwizzledData() {
     // swizzled data returns a Lattice
     return _swizzled_image.get();
+}
+
+casacore::Lattice<float>* Hdf5Loader::LoadMipMapData(int mip) {
+    // mipmap data returns a Lattice
+    return _mipmaps[mip].get();
 }
 
 std::string Hdf5Loader::DataSetToString(FileInfo::Data ds) const {
@@ -121,11 +150,21 @@ std::string Hdf5Loader::DataSetToString(FileInfo::Data ds) const {
     }
 }
 
+bool Hdf5Loader::HasMip(int mip) const {
+    return _mipmaps.find(mip) != _mipmaps.end();
+}
+
 // TODO: The datatype used to create the HDF5DataSet has to match the native type exactly, but the data can be read into an array of the
 // same type class. We cannot guarantee a particular native type -- e.g. some files use doubles instead of floats. This necessitates this
 // complicated templating, at least for now.
-const Hdf5Loader::IPos Hdf5Loader::GetStatsDataShape(FileInfo::Data ds) {
-    auto data_type = casacore::HDF5DataSet::getDataType(_image->Group()->getHid(), DataSetToString(ds));
+const casacore::IPosition Hdf5Loader::GetStatsDataShape(FileInfo::Data ds) {
+    auto image = GetImage();
+    if (!image) {
+        return casacore::IPosition();
+    }
+
+    CartaHdf5Image* hdf5_image = dynamic_cast<CartaHdf5Image*>(image.get());
+    auto data_type = casacore::HDF5DataSet::getDataType(hdf5_image->Group()->getHid(), DataSetToString(ds));
 
     switch (data_type) {
         case casacore::TpInt: {
@@ -148,8 +187,14 @@ const Hdf5Loader::IPos Hdf5Loader::GetStatsDataShape(FileInfo::Data ds) {
 // TODO: The datatype used to create the HDF5DataSet has to match the native type exactly, but the data can be read into an array of the
 // same type class. We cannot guarantee a particular native type -- e.g. some files use doubles instead of floats. This necessitates this
 // complicated templating, at least for now.
-casacore::ArrayBase* Hdf5Loader::GetStatsData(FileInfo::Data ds) {
-    auto data_type = casacore::HDF5DataSet::getDataType(_image->Group()->getHid(), DataSetToString(ds));
+std::unique_ptr<casacore::ArrayBase> Hdf5Loader::GetStatsData(FileInfo::Data ds) {
+    auto image = GetImage();
+    if (!image) {
+        throw casacore::HDF5Error("Cannot get dataset " + DataSetToString(ds) + " from invalid image.");
+    }
+
+    CartaHdf5Image* hdf5_image = dynamic_cast<CartaHdf5Image*>(image.get());
+    auto data_type = casacore::HDF5DataSet::getDataType(hdf5_image->Group()->getHid(), DataSetToString(ds));
 
     switch (data_type) {
         case casacore::TpInt: {
@@ -178,9 +223,10 @@ bool Hdf5Loader::GetCursorSpectralData(
     if (has_swizzled) {
         casacore::Slicer slicer;
         if (_num_dims == 4) {
-            slicer = casacore::Slicer(IPos(4, 0, cursor_y, cursor_x, stokes), IPos(4, _depth, count_y, count_x, 1));
+            slicer = casacore::Slicer(
+                casacore::IPosition(4, 0, cursor_y, cursor_x, stokes), casacore::IPosition(4, _depth, count_y, count_x, 1));
         } else if (_num_dims == 3) {
-            slicer = casacore::Slicer(IPos(3, 0, cursor_y, cursor_x), IPos(3, _depth, count_y, count_x));
+            slicer = casacore::Slicer(casacore::IPosition(3, 0, cursor_y, cursor_x), casacore::IPosition(3, _depth, count_y, count_x));
         }
 
         data.resize(_depth * count_y * count_x);
@@ -196,7 +242,7 @@ bool Hdf5Loader::GetCursorSpectralData(
     return data_ok;
 }
 
-bool Hdf5Loader::UseRegionSpectralData(const IPos& region_shape, std::mutex& image_mutex) {
+bool Hdf5Loader::UseRegionSpectralData(const casacore::IPosition& region_shape, std::mutex& image_mutex) {
     std::unique_lock<std::mutex> ulock(image_mutex);
     bool has_swizzled = HasData(FileInfo::Data::SWIZZLED);
     ulock.unlock();
@@ -217,8 +263,8 @@ bool Hdf5Loader::UseRegionSpectralData(const IPos& region_shape, std::mutex& ima
     return true;
 }
 
-bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore::ArrayLattice<casacore::Bool>& mask, const IPos& origin,
-    std::mutex& image_mutex, std::map<CARTA::StatsType, std::vector<double>>& results, float& progress) {
+bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore::ArrayLattice<casacore::Bool>& mask,
+    const casacore::IPosition& origin, std::mutex& image_mutex, std::map<CARTA::StatsType, std::vector<double>>& results, float& progress) {
     // Return calculated stats if valid and complete,
     // or return accumulated stats for the next incomplete "x" slice of swizzled data (chan vs y).
     // Calling function should check for complete progress when x-range of region is complete
@@ -233,11 +279,11 @@ bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore
 
     // Check if region stats calculated
     auto region_stats_id = FileInfo::RegionStatsId(region_id, stokes);
-    IPos mask_shape(mask.shape());
+    casacore::IPosition mask_shape(mask.shape());
     if (_region_stats.count(region_stats_id) && _region_stats[region_stats_id].IsValid(origin, mask_shape) &&
         _region_stats[region_stats_id].IsCompleted()) {
         results = _region_stats[region_stats_id].stats;
-        progress = PROFILE_COMPLETE;
+        progress = 1.0;
         return true;
     }
 
@@ -337,7 +383,7 @@ bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore
 
         for (size_t y = 0; y < height; y++) {
             // skip all Z values for masked pixels
-            if (!mask.getAt(IPos(2, x, y))) {
+            if (!mask.getAt(casacore::IPosition(2, x, y))) {
                 continue;
             }
 
@@ -361,7 +407,7 @@ bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore
 
     results = _region_stats[region_stats_id].stats;
     if (max_x == width) {
-        progress = PROFILE_COMPLETE;
+        progress = 1.0;
     } else {
         progress = (float)max_x / width;
     }
@@ -369,12 +415,100 @@ bool Hdf5Loader::GetRegionSpectralData(int region_id, int stokes, const casacore
     // Update starting x for next time
     _region_stats[region_stats_id].latest_x = max_x;
 
-    if (progress >= PROFILE_COMPLETE) {
+    if (progress >= 1.0) {
         // the stats calculation is completed
         _region_stats[region_stats_id].completed = true;
+
+        if (region_id == TEMP_REGION_ID) {
+            // clear for next temp region
+            _region_stats.erase(region_stats_id);
+        }
     }
 
     return true;
+}
+
+bool Hdf5Loader::GetDownsampledRasterData(
+    std::vector<float>& data, int z, int stokes, CARTA::ImageBounds& bounds, int mip, std::mutex& image_mutex) {
+    if (!HasMip(mip)) {
+        return false;
+    }
+
+    bool data_ok(false);
+
+    const int xmin = std::ceil((float)bounds.x_min() / mip);
+    const int ymin = std::ceil((float)bounds.y_min() / mip);
+    const int xmax = std::ceil((float)bounds.x_max() / mip);
+    const int ymax = std::ceil((float)bounds.y_max() / mip);
+
+    const int w = xmax - xmin;
+    const int h = ymax - ymin;
+
+    casacore::Slicer slicer;
+    if (_num_dims == 4) {
+        slicer = casacore::Slicer(casacore::IPosition(4, xmin, ymin, z, stokes), casacore::IPosition(4, w, h, 1, 1));
+    } else if (_num_dims == 3) {
+        slicer = casacore::Slicer(casacore::IPosition(3, xmin, ymin, z), casacore::IPosition(3, w, h, 1));
+    } else if (_num_dims == 2) {
+        slicer = casacore::Slicer(casacore::IPosition(2, xmin, ymin), casacore::IPosition(2, w, h));
+    } else {
+        return false;
+    }
+
+    data.resize(w * h);
+    casacore::Array<float> tmp(slicer.length(), data.data(), casacore::StorageInitPolicy::SHARE);
+
+    std::lock_guard<std::mutex> lguard(image_mutex);
+    try {
+        LoadMipMapData(mip)->doGetSlice(tmp, slicer);
+        data_ok = true;
+    } catch (casacore::AipsError& err) {
+        std::cerr << "Could not load MipMap data. AIPS ERROR: " << err.getMesg() << std::endl;
+    }
+
+    return data_ok;
+}
+
+bool Hdf5Loader::GetChunk(
+    std::vector<float>& data, int& data_width, int& data_height, int min_x, int min_y, int z, int stokes, std::mutex& image_mutex) {
+    bool data_ok(false);
+
+    data_width = std::min(CHUNK_SIZE, (int)_width - min_x);
+    data_height = std::min(CHUNK_SIZE, (int)_height - min_y);
+
+    StokesSource stokes_source(stokes, AxisRange(z), AxisRange(min_x, min_x + data_width - 1), AxisRange(min_y, min_y + data_height - 1));
+    if (!stokes_source.IsOriginalImage()) { // Reset the start position of the slicer as 0 for the computed stokes image
+        stokes = 0;
+        z = 0;
+        min_x = 0;
+        min_y = 0;
+    }
+
+    casacore::Slicer slicer;
+    if (_num_dims == 4) {
+        slicer = casacore::Slicer(casacore::IPosition(4, min_x, min_y, z, stokes), casacore::IPosition(4, data_width, data_height, 1, 1));
+    } else if (_num_dims == 3) {
+        slicer = casacore::Slicer(casacore::IPosition(3, min_x, min_y, z), casacore::IPosition(3, data_width, data_height, 1));
+    } else if (_num_dims == 2) {
+        slicer = casacore::Slicer(casacore::IPosition(2, min_x, min_y), casacore::IPosition(2, data_width, data_height));
+    }
+
+    data.resize(data_width * data_height);
+    casacore::Array<float> tmp(slicer.length(), data.data(), casacore::StorageInitPolicy::SHARE);
+
+    std::lock_guard<std::mutex> lguard(image_mutex);
+    try {
+        GetSlice(tmp, StokesSlicer(stokes_source, slicer));
+        data_ok = true;
+    } catch (casacore::AipsError& err) {
+        std::cerr << "Could not load image tile. AIPS ERROR: " << err.getMesg() << std::endl;
+    }
+
+    return data_ok;
+}
+
+bool Hdf5Loader::UseTileCache() const {
+    return _layout == H5D_CHUNKED;
 }
 
 } // namespace carta

@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -10,13 +10,14 @@
 #include "CartaFitsImage.h"
 
 #include <casacore/casa/Arrays/ArrayMath.h>
+#include <casacore/images/Images/SubImage.h>
+#include <casacore/lattices/Lattices/MaskedLatticeIterator.h>
 
 namespace carta {
 
 template <typename T>
 bool CartaFitsImage::GetDataSubset(fitsfile* fptr, int datatype, const casacore::Slicer& section, casacore::Array<float>& buffer) {
     // Read section of data from FITS file and put it in buffer
-
     // Get section components (convert to 1-based)
     std::vector<long> start, end, inc;
     casacore::IPosition slicer_start = section.start();
@@ -40,27 +41,34 @@ bool CartaFitsImage::GetDataSubset(fitsfile* fptr, int datatype, const casacore:
     int dtype(TFLOAT);
 
     switch (datatype) {
-        case 8:
-            dtype = TBYTE;
+        case 8: {
+            fits_read_subset(fptr, TBYTE, start.data(), end.data(), inc.data(), &null_val, tmp_buffer.data(), &anynul, &status);
             break;
-        case 16:
-            dtype = TSHORT;
+        }
+        case 16: {
+            fits_read_subset(fptr, TSHORT, start.data(), end.data(), inc.data(), &null_val, tmp_buffer.data(), &anynul, &status);
             break;
-        case 32:
-            dtype = TINT;
+        }
+        case 32: {
+            fits_read_subset(fptr, TINT, start.data(), end.data(), inc.data(), &null_val, tmp_buffer.data(), &anynul, &status);
             break;
-        case 64:
-            dtype = TLONGLONG;
+        }
+        case 64: {
+            fits_read_subset(fptr, TLONGLONG, start.data(), end.data(), inc.data(), &null_val, tmp_buffer.data(), &anynul, &status);
             break;
-        case -32:
-            dtype = TFLOAT;
+        }
+        case -32: {
+            float fnull_val(NAN);
+            fits_read_subset(fptr, TFLOAT, start.data(), end.data(), inc.data(), &fnull_val, tmp_buffer.data(), &anynul, &status);
             break;
-        case -64:
-            dtype = TDOUBLE;
+        }
+        case -64: {
+            double dnull_val(NAN);
+            fits_read_subset(fptr, TDOUBLE, start.data(), end.data(), inc.data(), &dnull_val, tmp_buffer.data(), &anynul, &status);
             break;
+        }
     }
 
-    fits_read_subset(fptr, dtype, start.data(), end.data(), inc.data(), &null_val, tmp_buffer.data(), &anynul, &status);
     if (status > 0) {
         spdlog::debug("fits_read_subset exited with status {}", status);
         return false;
@@ -117,6 +125,26 @@ bool CartaFitsImage::GetPixelMask(fitsfile* fptr, int datatype, const casacore::
     casacore::Array<bool> mask_array(marray.shape());
     convertArray(mask_array, marray);
     mask = casacore::ArrayLattice<bool>(mask_array);
+    return true;
+}
+
+template <typename T>
+bool CartaFitsImage::GetNanPixelMask(casacore::ArrayLattice<bool>& mask) {
+    // Pixel mask for entire image
+    auto mask_array = mask.asArray();
+    mask_array.resize(shape());
+
+    casacore::SubImage<T> sub_image(dynamic_cast<casacore::ImageInterface<T>&>(*this));
+    casacore::RO_MaskedLatticeIterator<T> lattice_iter(sub_image);
+
+    for (lattice_iter.reset(); !lattice_iter.atEnd(); ++lattice_iter) {
+        casacore::Array<T> cursor_data = lattice_iter.cursor();
+        casacore::Array<bool> cursor_mask = isFinite(cursor_data);
+
+        casacore::Slicer cursor_slicer(lattice_iter.position(), lattice_iter.cursorShape());
+        mask_array(cursor_slicer) = cursor_mask;
+    }
+
     return true;
 }
 

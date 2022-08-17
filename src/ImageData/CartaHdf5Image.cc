@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -15,10 +15,12 @@
 #include <casacore/fits/FITS/FITSKeywordUtil.h>
 #include <casacore/fits/FITS/fits.h>
 #include <casacore/images/Images/ImageFITSConverter.h>
+#include <casacore/images/Images/ImageOpener.h>
 #include <casacore/lattices/Lattices/HDF5Lattice.h>
 
 #include "../Logger/Logger.h"
-#include "../Util.h"
+#include "Util/String.h"
+
 #include "Hdf5Attributes.h"
 
 using namespace carta;
@@ -47,6 +49,14 @@ CartaHdf5Image::CartaHdf5Image(const CartaHdf5Image& other)
 
 CartaHdf5Image::~CartaHdf5Image() {
     delete _pixel_mask;
+}
+
+casacore::LatticeBase* CartaHdf5Image::OpenCartaHdf5Image(const casacore::String& name, const casacore::MaskSpecifier& spec) {
+    return new CartaHdf5Image(name, "DATA", "0", spec);
+}
+
+void CartaHdf5Image::RegisterOpenFunction() {
+    casacore::ImageOpener::registerOpenImageFunction(casacore::ImageOpener::HDF5, &OpenCartaHdf5Image);
 }
 
 // Image interface
@@ -159,11 +169,13 @@ void CartaHdf5Image::SetUpImage() {
     // Set up coordinate system, image info, misc info from image header entries
     try {
         // convert header entries to FITS header strings
-        casacore::Vector<casacore::String> fits_header_strings = Hdf5ToFITSHeaderStrings();
-        if (!fits_header_strings.empty()) {
+        // Convert specified Hdf5 attributes to FITS-format strings.
+        casacore::CountedPtr<casacore::HDF5Group> hdf5_group(_lattice.group());
+        Hdf5Attributes::ReadAttributes(hdf5_group.get()->getHid(), _fits_header_strings);
+        if (!_fits_header_strings.empty()) {
             // extract HDF5 headers for MiscInfo
             casacore::String schema, converter, converter_version, date;
-            for (auto& header : fits_header_strings) {
+            for (auto& header : _fits_header_strings) {
                 std::vector<std::string> kw_value;
                 if (header.contains("SCHEMA_VERSION")) {
                     SplitString(header, '=', kw_value);
@@ -197,7 +209,7 @@ void CartaHdf5Image::SetUpImage() {
             casacore::IPosition image_shape(shape());
             bool drop_stokes(true);
             casacore::CoordinateSystem coordinate_system = casacore::ImageFITSConverter::getCoordinateSystem(
-                stokes_fits_value, unused_headers_rec, fits_header_strings, log, which_rep, image_shape, drop_stokes);
+                stokes_fits_value, unused_headers_rec, _fits_header_strings, log, which_rep, image_shape, drop_stokes);
             setCoordinateInfo(coordinate_system);
 
             // set image units
@@ -238,12 +250,13 @@ void CartaHdf5Image::SetUpImage() {
     }
 }
 
-casacore::Vector<casacore::String> CartaHdf5Image::Hdf5ToFITSHeaderStrings() {
-    // Convert specified Hdf5 attributes to FITS-format strings.
-    casacore::CountedPtr<casacore::HDF5Group> hdf5_group(_lattice.group());
-    return Hdf5Attributes::ReadAttributes(hdf5_group.get()->getHid());
+casacore::Vector<casacore::String> CartaHdf5Image::FitsHeaderStrings() {
+    return _fits_header_strings;
 }
 
+casacore::DataType CartaHdf5Image::internalDataType() {
+    return _lattice.dataType();
+}
 casacore::uInt CartaHdf5Image::advisedMaxPixels() const {
     return _lattice.advisedMaxPixels();
 }

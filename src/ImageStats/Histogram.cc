@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -11,17 +11,17 @@
 #include <cmath>
 
 #include "Logger/Logger.h"
-#include "Threading.h"
+#include "ThreadingManager/ThreadingManager.h"
 
 using namespace carta;
 
-Histogram::Histogram(int num_bins, float min_value, float max_value, const std::vector<float>& data)
+Histogram::Histogram(int num_bins, float min_value, float max_value, const float* data, const size_t data_size)
     : _bin_width((max_value - min_value) / num_bins),
       _min_val(min_value),
       _max_val(max_value),
       _bin_center(min_value + (_bin_width * 0.5)),
       _histogram_bins(num_bins, 0) {
-    Fill(data);
+    Fill(data, data_size);
 }
 
 Histogram::Histogram(const Histogram& h)
@@ -45,9 +45,9 @@ bool Histogram::Add(const Histogram& h) {
     return true;
 }
 
-void Histogram::Fill(const std::vector<float>& data) {
+void Histogram::Fill(const float* data, const size_t data_size) {
     std::vector<int64_t> temp_bins;
-    const auto num_elements = data.size();
+    const auto num_elements = data_size;
     const size_t num_bins = GetNbins();
     ThreadManager::ApplyThreadLimit();
 #pragma omp parallel

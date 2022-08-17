@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -11,6 +11,7 @@
 #define CARTA_BACKEND_IMAGEDATA_CARTAFITSIMAGE_H_
 
 #include <casacore/casa/Utilities/DataType.h>
+#include <casacore/images/Images/ImageInfo.h>
 #include <casacore/images/Images/ImageInterface.h>
 #include <casacore/lattices/Lattices/TiledShape.h>
 
@@ -51,6 +52,9 @@ public:
 
     casacore::DataType internalDataType() const;
 
+    // Headers accessors
+    casacore::Vector<casacore::String> FitsHeaderStrings();
+
 private:
     // Uses _fptr (nullptr when file is closed)
     fitsfile* OpenFile();
@@ -58,7 +62,8 @@ private:
     void CloseFileIfError(const int& status, const std::string& error);
 
     void SetUpImage();
-    void GetFitsHeaders(int& nkeys, std::string& hdrstr);
+    void GetFitsHeaderString(int& nheaders, std::string& hdrstr);
+    void SetFitsHeaderStrings(int nheaders, const std::string& header);
 
     // casacore ImageFITSConverter workaround
     casacore::CoordinateSystem SetCoordinateSystem(
@@ -72,15 +77,19 @@ private:
     bool AddLinearCoordinate(casacore::CoordinateSystem& coord_sys, const ::wcsprm& wcs, std::vector<int>& linear_axes);
     void SetCoordSysOrder(casacore::CoordinateSystem& coord_sys, int naxes, std::vector<int>& special_axes, std::vector<int>& lin_axes);
     void SetHeaderRec(char* header, casacore::RecordInterface& header_rec);
+    void ReadBeamsTable(casacore::ImageInfo& image_info);
     void AddObsInfo(casacore::CoordinateSystem& coord_sys, casacore::RecordInterface& header_rec);
 
     // Pixel mask
     void SetPixelMask();
+    bool doGetNanMaskSlice(casacore::Array<bool>& buffer, const casacore::Slicer& section);
 
     template <typename T>
     bool GetDataSubset(fitsfile* fptr, int datatype, const casacore::Slicer& section, casacore::Array<float>& buffer);
     template <typename T>
     bool GetPixelMask(fitsfile* fptr, int datatype, const casacore::IPosition& shape, casacore::ArrayLattice<bool>& mask);
+    template <typename T>
+    bool GetNanPixelMask(casacore::ArrayLattice<bool>& mask);
 
     std::string _filename;
     unsigned int _hdu;
@@ -93,9 +102,14 @@ private:
     casacore::IPosition _shape;
     int _datatype; // bitpix value
     bool _has_blanks;
+    casacore::Vector<casacore::String> _all_header_strings;
+    casacore::Vector<casacore::String> _image_header_strings;
 
     casacore::Lattice<bool>* _pixel_mask;
     casacore::TiledShape _tiled_shape;
+
+    // Whether is a copy of the other CartaFitsImage
+    bool _is_copy;
 };
 
 } // namespace carta

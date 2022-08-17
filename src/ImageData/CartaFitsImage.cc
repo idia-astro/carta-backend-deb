@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -35,7 +35,8 @@ CartaFitsImage::CartaFitsImage(const std::string& filename, unsigned int hdu)
       _is_compressed(false),
       _datatype(casacore::TpOther),
       _has_blanks(false),
-      _pixel_mask(nullptr) {
+      _pixel_mask(nullptr),
+      _is_copy(false) {
     casacore::File ccfile(filename);
     if (!ccfile.exists() || !ccfile.isReadable()) {
         throw(casacore::AipsError("FITS file is not readable or does not exist."));
@@ -54,15 +55,18 @@ CartaFitsImage::CartaFitsImage(const CartaFitsImage& other)
       _datatype(other._datatype),
       _has_blanks(other._has_blanks),
       _pixel_mask(nullptr),
-      _tiled_shape(other._tiled_shape) {
+      _tiled_shape(other._tiled_shape),
+      _is_copy(true) {
     if (other._pixel_mask != nullptr) {
         _pixel_mask = other._pixel_mask->clone();
     }
 }
 
 CartaFitsImage::~CartaFitsImage() {
-    CloseFile();
-    delete _pixel_mask;
+    if (!_is_copy) {
+        CloseFile();
+        delete _pixel_mask;
+    }
 }
 
 // Image interface
@@ -214,7 +218,11 @@ casacore::Bool CartaFitsImage::doGetMaskSlice(casacore::Array<bool>& buffer, con
     }
 
     if (!_pixel_mask) {
-        SetPixelMask();
+        if (_datatype > 0) {
+            SetPixelMask();
+        } else {
+            return doGetNanMaskSlice(buffer, section);
+        }
     }
 
     if (_pixel_mask) {
@@ -271,18 +279,13 @@ void CartaFitsImage::CloseFileIfError(const int& status, const std::string& erro
 
 void CartaFitsImage::SetUpImage() {
     // Set up image parameters and coordinate system from headers
-    // Get headers as single string
+    // Read headers into string
     int nheaders(0);
-    std::string header_str;
-    GetFitsHeaders(nheaders, header_str);
+    std::string header;
+    GetFitsHeaderString(nheaders, header);
 
-    // Convert headers to Vector of Strings to pass to casacore converter
-    casacore::Vector<casacore::String> header_strings(nheaders);
-    size_t pos(0);
-    for (int i = 0; i < nheaders; ++i) {
-        header_strings(i) = header_str.substr(pos, 80);
-        pos += 80;
-    }
+    // Headers as String vector to pass to converter
+    SetFitsHeaderStrings(nheaders, header);
 
     casacore::Record unused_headers;
     casacore::LogSink sink;
@@ -294,13 +297,13 @@ void CartaFitsImage::SetUpImage() {
     try {
         // Set coordinate system
         coord_sys = casacore::ImageFITSConverter::getCoordinateSystem(
-            stokes_fits_value, unused_headers, header_strings, log, 0, _shape, drop_stokes);
+            stokes_fits_value, unused_headers, _image_header_strings, log, 0, _shape, drop_stokes);
     } catch (const casacore::AipsError& err) {
         if (err.getMesg().startsWith("TabularCoordinate")) {
             // Spectral axis defined in velocity fails if no rest freq to convert to frequencies
             try {
                 // Set up with wcslib
-                coord_sys = SetCoordinateSystem(nheaders, header_str, unused_headers, stokes_fits_value);
+                coord_sys = SetCoordinateSystem(nheaders, header, unused_headers, stokes_fits_value);
             } catch (const casacore::AipsError& err) {
                 spdlog::debug("Coordinate system setup error: {}", err.getMesg());
                 throw(casacore::AipsError("Coordinate system setup from FITS headers failed."));
@@ -329,6 +332,11 @@ void CartaFitsImage::SetUpImage() {
                 image_info.setImageType(type);
             }
         }
+
+        if (unused_headers.isDefined("casambm") && unused_headers.asRecord("casambm").asBool("value")) {
+            ReadBeamsTable(image_info);
+        }
+
         setImageInfo(image_info);
 
         // Set misc info
@@ -342,13 +350,11 @@ void CartaFitsImage::SetUpImage() {
     }
 }
 
-void CartaFitsImage::GetFitsHeaders(int& nkeys, std::string& hdrstr) {
+void CartaFitsImage::GetFitsHeaderString(int& nheaders, std::string& hdrstr) {
     // Read header values into single string, and store some image parameters.
     // Returns string and number of keys contained in string.
     // Throws exception if any headers missing.
-
     fitsfile* fptr = OpenFile();
-
     int status(0);
 
     // Check hdutype
@@ -388,6 +394,9 @@ void CartaFitsImage::GetFitsHeaders(int& nkeys, std::string& hdrstr) {
         status = 0;
         fits_read_key(fptr, TLONG, key.c_str(), &blank_value, comment, &status);
         _has_blanks = !status;
+    } else {
+        // For float (-32) and double (-64) mask is represented by NaN
+        _has_blanks = true;
     }
 
     // Get headers to set up image:
@@ -398,21 +407,21 @@ void CartaFitsImage::GetFitsHeaders(int& nkeys, std::string& hdrstr) {
     CloseFileIfError(status, "Error detecting image compression.");
 
     // Number of headers (keys).  nkeys is function parameter.
-    nkeys = 0;
+    nheaders = 0;
     int* more_keys(nullptr);
     status = 0;
-    fits_get_hdrspace(fptr, &nkeys, more_keys, &status);
+    fits_get_hdrspace(fptr, &nheaders, more_keys, &status);
     CloseFileIfError(status, "Unable to determine FITS headers.");
 
     // Get headers as single string with no exclusions (exclist=nullptr, nexc=0)
     int no_comments(0);
-    char* header[nkeys];
+    char* header[nheaders];
     status = 0;
     if (_is_compressed) {
         // Convert to uncompressed headers
-        fits_convert_hdr2str(fptr, no_comments, nullptr, 0, header, &nkeys, &status);
+        fits_convert_hdr2str(fptr, no_comments, nullptr, 0, header, &nheaders, &status);
     } else {
-        fits_hdr2str(fptr, no_comments, nullptr, 0, header, &nkeys, &status);
+        fits_hdr2str(fptr, no_comments, nullptr, 0, header, &nheaders, &status);
     }
 
     if (status) {
@@ -430,6 +439,42 @@ void CartaFitsImage::GetFitsHeaders(int& nkeys, std::string& hdrstr) {
 
     // Done with file
     CloseFile();
+}
+
+void CartaFitsImage::SetFitsHeaderStrings(int nheaders, const std::string& header) {
+    // Set header strings as vector of 80-char strings, with and without history headers.
+    _all_header_strings.resize(nheaders);
+    std::vector<casacore::String> no_history_strings;
+    size_t pos(0);
+
+    for (int i = 0; i < nheaders; ++i) {
+        casacore::String hstring = header.substr(pos, 80);
+        _all_header_strings(i) = hstring;
+
+        if (!hstring.startsWith("HISTORY")) {
+            no_history_strings.push_back(hstring);
+        }
+
+        pos += 80;
+    }
+
+    // For setting up image
+    _image_header_strings = no_history_strings;
+}
+
+casacore::Vector<casacore::String> CartaFitsImage::FitsHeaderStrings() {
+    // Return all headers as string vector
+    if (_all_header_strings.empty()) {
+        // Headers as single string
+        int nheaders(0);
+        std::string fits_headers;
+        GetFitsHeaderString(nheaders, fits_headers);
+
+        // Headers as vector of strings
+        SetFitsHeaderStrings(nheaders, fits_headers);
+    }
+
+    return _all_header_strings;
 }
 
 casacore::CoordinateSystem CartaFitsImage::SetCoordinateSystem(
@@ -1210,6 +1255,131 @@ void CartaFitsImage::SetHeaderRec(char* header, casacore::RecordInterface& heade
     free(fits_keys);
 }
 
+void CartaFitsImage::ReadBeamsTable(casacore::ImageInfo& image_info) {
+    // Read BEAMS Binary Table to set ImageBeamSet in ImageInfo
+    fitsfile* fptr;
+    int status(0);
+    fits_open_file(&fptr, _filename.c_str(), 0, &status);
+
+    if (status) {
+        throw(casacore::AipsError("Error opening FITS file."));
+    }
+
+    // Open binary table extension with name BEAMS
+    int hdutype(BINARY_TBL), extver(0);
+    char extname[] = "BEAMS";
+    status = 0;
+    fits_movnam_hdu(fptr, hdutype, extname, extver, &status);
+
+    if (status) {
+        status = 0;
+        fits_close_file(fptr, &status);
+        spdlog::info("Inconsistent header: could not find BEAMS table.");
+        return;
+    }
+
+    // Header keywords: nrow, ncol, nchan, npol, tfields, ttype, tunit
+    // Check nrow and ncol
+    long nrow(0);
+    int ncol(0), nchan(0), npol(0), tfields(0);
+
+    status = 0;
+    fits_get_num_rows(fptr, &nrow, &status);
+    status = 0;
+    fits_get_num_cols(fptr, &ncol, &status);
+
+    if (status || (nrow * ncol == 0)) {
+        status = 0;
+        fits_close_file(fptr, &status);
+        spdlog::info("BEAMS table is empty.");
+        return;
+    }
+
+    // Check nchan and npol
+    char* comment(nullptr);
+
+    std::string key("NCHAN");
+    status = 0;
+    fits_read_key(fptr, TINT, key.c_str(), &nchan, comment, &status);
+
+    key = "NPOL";
+    status = 0;
+    fits_read_key(fptr, TINT, key.c_str(), &npol, comment, &status);
+
+    if (nchan * npol == 0) {
+        status = 0;
+        fits_close_file(fptr, &status);
+        spdlog::info("BEAMS table nchan or npol is zero.");
+        return;
+    }
+
+    // Get names and units for tfields; not all names have units
+    key = "TFIELDS";
+    status = 0;
+    fits_read_key(fptr, TINT, key.c_str(), &tfields, comment, &status);
+
+    std::unordered_map<string, string> beam_units;
+    for (int i = 0; i < tfields; ++i) {
+        char name[10], unit[10];
+        std::string index_str = std::to_string(i + 1);
+
+        key = "TTYPE" + index_str;
+        status = 0;
+        fits_read_key(fptr, TSTRING, key.c_str(), name, comment, &status);
+
+        key = "TUNIT" + index_str;
+        status = 0;
+        fits_read_key(fptr, TSTRING, key.c_str(), unit, comment, &status);
+
+        beam_units[name] = unit;
+    }
+
+    // Read columns into vectors
+    int casesen(CASEINSEN), colnum(0), fdatatype(TFLOAT), idatatype(TINT), anynul(0);
+    LONGLONG firstrow(1), firstelem(1);
+    float* fnulval(nullptr);
+    int* inulval(nullptr);
+
+    std::vector<float> bmaj(nrow), bmin(nrow), bpa(nrow);
+    std::vector<int> chan(nrow), pol(nrow);
+
+    char bmaj_name[] = "BMAJ";
+    status = 0;
+    fits_get_colnum(fptr, casesen, bmaj_name, &colnum, &status);
+    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bmaj.data(), &anynul, &status);
+
+    char bmin_name[] = "BMIN";
+    status = 0;
+    fits_get_colnum(fptr, casesen, bmin_name, &colnum, &status);
+    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bmin.data(), &anynul, &status);
+
+    char bpa_name[] = "BPA";
+    status = 0;
+    fits_get_colnum(fptr, casesen, bpa_name, &colnum, &status);
+    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bpa.data(), &anynul, &status);
+
+    char chan_name[] = "CHAN";
+    status = 0;
+    fits_get_colnum(fptr, casesen, chan_name, &colnum, &status);
+    fits_read_col(fptr, idatatype, colnum, firstrow, firstelem, nrow, inulval, chan.data(), &anynul, &status);
+
+    char pol_name[] = "POL";
+    status = 0;
+    fits_get_colnum(fptr, casesen, pol_name, &colnum, &status);
+    fits_read_col(fptr, idatatype, colnum, firstrow, firstelem, nrow, inulval, pol.data(), &anynul, &status);
+
+    fits_close_file(fptr, &status);
+
+    image_info.setAllBeams(nchan, npol, casacore::GaussianBeam::NULL_BEAM);
+    for (int i = 0; i < nrow; ++i) {
+        casacore::Quantity bmajq(bmaj[i], beam_units["BMAJ"]);
+        casacore::Quantity bminq(bmin[i], beam_units["BMIN"]);
+        casacore::Quantity bpaq(bpa[i], beam_units["BPA"]);
+        casacore::GaussianBeam beam(bmajq, bminq, bpaq);
+        image_info.setBeam(chan[i], pol[i], beam);
+    }
+}
+
 void CartaFitsImage::AddObsInfo(casacore::CoordinateSystem& coord_sys, casacore::RecordInterface& header_rec) {
     // Add ObsInfo (observer, telescope, date) to coordinate system, and update header_rec
     casacore::Vector<casacore::String> error;
@@ -1251,11 +1421,15 @@ void CartaFitsImage::SetPixelMask() {
             break;
         }
         case -32: {
-            ok = GetPixelMask<float>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetNanPixelMask<float>(mask_lattice);
             break;
         }
         case -64: {
-            ok = GetPixelMask<double>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetNanPixelMask<double>(mask_lattice);
+            break;
+        }
+        default: {
+            ok = false;
             break;
         }
     }
@@ -1268,4 +1442,15 @@ void CartaFitsImage::SetPixelMask() {
     }
 
     CloseFile();
+}
+
+bool CartaFitsImage::doGetNanMaskSlice(casacore::Array<bool>& buffer, const casacore::Slicer& section) {
+    // Create mask from finite (not NaN or infinite) values in slice
+    casacore::Array<float> data;
+    if (doGetSlice(data, section)) {
+        buffer = isFinite(data);
+        return true;
+    }
+
+    return false;
 }

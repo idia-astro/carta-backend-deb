@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -12,9 +12,10 @@
 #include <vector>
 
 #include "../Logger/Logger.h"
-#include "Threading.h"
+#include "ThreadingManager/ThreadingManager.h"
+#include "Timer/Timer.h"
 
-using namespace std;
+namespace carta {
 
 double NormPdf(double x, double sigma) {
     return exp(-0.5 * x * x / (sigma * sigma)) / sigma;
@@ -44,7 +45,7 @@ bool RunKernel(const vector<float>& kernel, const float* src_data, float* dest_d
     const int64_t x_offset = vertical ? 0 : kernel_radius;
     const int64_t y_offset = vertical ? kernel_radius : 0;
 
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
 #pragma omp parallel for
     for (int64_t dest_y = 0; dest_y < dest_height; dest_y++) {
         int64_t src_y = dest_y + y_offset;
@@ -126,7 +127,7 @@ bool GaussianSmooth(const float* src_data, float* dest_data, int64_t src_width, 
         return false;
     }
 
-    vector<float> kernel(mask_size);
+    std::vector<float> kernel(mask_size);
     MakeKernel(kernel, sigma);
 
     double target_pixels = (SMOOTHING_TEMP_BUFFER_SIZE_MB * 1e6) / sizeof(float);
@@ -137,8 +138,8 @@ bool GaussianSmooth(const float* src_data, float* dest_data, int64_t src_width, 
     int64_t buffer_height = min(target_buffer_height, src_height);
 
     int64_t line_offset = 0;
-    auto t_start = std::chrono::high_resolution_clock::now();
-    unique_ptr<float> temp_array(new float[dest_width * buffer_height]);
+    Timer t;
+    std::unique_ptr<float[]> temp_array(new float[dest_width * buffer_height]);
     auto source_ptr = src_data;
     auto dest_ptr = dest_data;
     const auto temp_ptr = temp_array.get();
@@ -158,7 +159,7 @@ bool GaussianSmooth(const float* src_data, float* dest_data, int64_t src_width, 
     }
 
     // Fill in original NaNs
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
 #pragma omp parallel for
     for (int64_t j = 0; j < dest_height; j++) {
         for (int64_t i = 0; i < dest_width; i++) {
@@ -170,11 +171,10 @@ bool GaussianSmooth(const float* src_data, float* dest_data, int64_t src_width, 
         }
     }
 
-    auto t_end = std::chrono::high_resolution_clock::now();
-    auto dt = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
-    auto rate = dest_width * dest_height / (double)dt;
+    auto dt = t.Elapsed();
+    auto rate = dest_width * dest_height / dt.us();
     spdlog::performance("Smoothed with smoothing factor of {} and kernel size of {} in {:.3f} ms at {:.3f} MPix/s", smoothing_factor,
-        mask_size, dt * 1e-3, rate);
+        mask_size, dt.ms(), rate);
 
     return true;
 }
@@ -197,7 +197,7 @@ bool BlockSmooth(const float* src_data, float* dest_data, int64_t src_width, int
 
 bool BlockSmoothSSE(const float* src_data, float* dest_data, int64_t src_width, int64_t src_height, int64_t dest_width, int64_t dest_height,
     int64_t x_offset, int64_t y_offset, int smoothing_factor) {
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
 #pragma omp parallel for
     for (int64_t j = 0; j < dest_height; ++j) {
         for (auto i = 0; i < dest_width; i++) {
@@ -256,7 +256,7 @@ bool BlockSmoothSSE(const float* src_data, float* dest_data, int64_t src_width, 
 #ifdef __AVX__
 bool BlockSmoothAVX(const float* src_data, float* dest_data, int64_t src_width, int64_t src_height, int64_t dest_width, int64_t dest_height,
     int64_t x_offset, int64_t y_offset, int smoothing_factor) {
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
 #pragma omp parallel for
     for (int64_t j = 0; j < dest_height; ++j) {
         for (auto i = 0; i < dest_width; i++) {
@@ -311,7 +311,7 @@ bool BlockSmoothAVX(const float* src_data, float* dest_data, int64_t src_width, 
 
 bool BlockSmoothScalar(const float* src_data, float* dest_data, int64_t src_width, int64_t src_height, int64_t dest_width,
     int64_t dest_height, int64_t x_offset, int64_t y_offset, int smoothing_factor) {
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
     // Non-SIMD version. This could still be optimised to use SIMD in future
 #pragma omp parallel for
     for (int64_t j = 0; j < dest_height; ++j) {
@@ -341,7 +341,7 @@ bool BlockSmoothScalar(const float* src_data, float* dest_data, int64_t src_widt
 
 void NearestNeighbor(const float* src_data, float* dest_data, int64_t src_width, int64_t dest_width, int64_t dest_height, int64_t x_offset,
     int64_t y_offset, int smoothing_factor) {
-    carta::ThreadManager::ApplyThreadLimit();
+    ThreadManager::ApplyThreadLimit();
 #pragma omp parallel for
     for (size_t j = 0; j < dest_height; ++j) {
         for (auto i = 0; i < dest_width; i++) {
@@ -351,3 +351,5 @@ void NearestNeighbor(const float* src_data, float* dest_data, int64_t src_width,
         }
     }
 }
+
+} // namespace carta

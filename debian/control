@@ -2,7 +2,7 @@ Source: carta-backend
 Section: science
 Priority: optional
 Maintainer: Adrianna Pińska <adrianna.pinska@gmail.com>
-Build-Depends: cmake, debhelper (>=11~), dh-exec, carta-casacore-dev (>= 3.4.0+6.5.0+2022.4.12), libzfp-dev, libcfitsio-dev, libcurl4-openssl-dev | libcurl4-gnutls-dev, libgrpc-dev, libgrpc++-dev, libgsl-dev, libhdf5-dev, libprotobuf-dev, libpugixml-dev, libtbb-dev, libzstd-dev, pkg-config, protobuf-compiler-grpc, wcslib-dev, uuid-dev
+Build-Depends: cmake, debhelper (>=11~), dh-exec, carta-casacore-dev (>= 3.4.0+6.5.0+2022.5.11), libzfp-dev, libcfitsio-dev, libgsl-dev, libhdf5-dev, libprotobuf-dev, libpugixml-dev, libzstd-dev, pkg-config, protobuf-compiler, wcslib-dev, uuid-dev
 Standards-Version: 4.1.4
 Homepage: https://github.com/CARTAvis/carta-backend
 Vcs-Browser: https://github.com/idia-astro/carta-backend-deb

@@ -1,11 +1,15 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 #ifndef CARTA_BACKEND_IMAGESTATS_BASICSTATSCALCULATOR_TCC_
 #define CARTA_BACKEND_IMAGESTATS_BASICSTATSCALCULATOR_TCC_
+
+#include "Logger/Logger.h"
+
+#include <cmath>
 
 namespace carta {
 
@@ -39,50 +43,20 @@ BasicStats<T>::BasicStats()
       sumSq(0) {}
 
 template <typename T>
-BasicStatsCalculator<T>::BasicStatsCalculator(const std::vector<T>& data)
+BasicStatsCalculator<T>::BasicStatsCalculator(const T* data, size_t data_size)
     : _min_val(std::numeric_limits<T>::max()),
       _max_val(std::numeric_limits<T>::lowest()),
       _sum(0),
       _sum_squares(0),
       _num_pixels(0),
-      _data(data) {}
+      _data(data),
+      _data_size(data_size) {}
 
 template <typename T>
-BasicStatsCalculator<T>::BasicStatsCalculator(BasicStatsCalculator<T>& mm, tbb::split)
-    : _min_val(std::numeric_limits<T>::max()),
-      _max_val(std::numeric_limits<T>::lowest()),
-      _sum(0),
-      _sum_squares(0),
-      _num_pixels(0),
-      _data(mm._data) {}
-
-template <typename T>
-void BasicStatsCalculator<T>::operator()(const tbb::blocked_range<size_t>& r) {
-    T t_min = _min_val;
-    T t_max = _max_val;
-    for (size_t i = r.begin(); i != r.end(); ++i) {
-        T val = _data[i];
-        if (std::isfinite(val)) {
-            if (val < t_min) {
-                t_min = val;
-            }
-            if (val > t_max) {
-                t_max = val;
-            }
-            _num_pixels++;
-            _sum += val;
-            _sum_squares += val * val;
-        }
-    }
-    _min_val = t_min;
-    _max_val = t_max;
-}
-
-template <typename T>
-void BasicStatsCalculator<T>::reduce(const size_t start, const size_t end) {
+void BasicStatsCalculator<T>::reduce() {
     size_t i;
 #pragma omp parallel for private(i) shared(_data) reduction(min: _min_val) reduction(max:_max_val) reduction(+:_num_pixels) reduction(+:_sum) reduction(+:_sum_squares)
-    for (i = start; i < end; i++) {
+    for (i = 0; i < _data_size; i++) {
         T val = _data[i];
         if (std::isfinite(val)) {
             if (val < _min_val) {
@@ -92,8 +66,8 @@ void BasicStatsCalculator<T>::reduce(const size_t start, const size_t end) {
                 _max_val = val;
             }
             _num_pixels++;
-            _sum += val;
-            _sum_squares += val * val;
+            _sum += (double)val;
+            _sum_squares += std::pow(val, 2);
         }
     }
 }

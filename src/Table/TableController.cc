@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -10,16 +10,15 @@
 
 #include "Logger/Logger.h"
 #include "Timer/ListProgressReporter.h"
-#include "Util.h"
+#include "Util/File.h"
 
 #if defined(__APPLE__)
 #define st_mtim st_mtimespec
 #endif
 
 using namespace carta;
-using namespace std;
 
-TableController::TableController(const string& top_level_folder, const string& starting_folder)
+TableController::TableController(const std::string& top_level_folder, const std::string& starting_folder)
     : _top_level_folder(top_level_folder), _starting_folder(starting_folder) {}
 
 void TableController::OnOpenFileRequest(const CARTA::OpenCatalogFile& open_file_request, CARTA::OpenCatalogFileAck& open_file_response) {
@@ -31,7 +30,9 @@ void TableController::OnOpenFileRequest(const CARTA::OpenCatalogFile& open_file_
 
     open_file_response.set_file_id(file_id);
     auto file_path = GetPath(open_file_request.directory(), open_file_request.name());
-    if (!fs::exists(file_path) || !fs::is_regular_file(file_path)) {
+    std::error_code error_code;
+
+    if (!fs::exists(file_path, error_code) || !fs::is_regular_file(file_path, error_code)) {
         open_file_response.set_message(fmt::format("Cannot find path {}", file_path.string()));
         open_file_response.set_success(false);
         return;
@@ -108,7 +109,7 @@ void TableController::OnFilterRequest(
         auto& view = cache.view;
         std::vector<CARTA::FilterConfig> new_filter_configs = {
             filter_request.filter_configs().begin(), filter_request.filter_configs().end()};
-        string sort_column_name = filter_request.sort_column();
+        std::string sort_column_name = filter_request.sort_column();
         CARTA::SortingType sorting_type = filter_request.sorting_type();
         if (TableController::FilterParamsChanged(new_filter_configs, sort_column_name, sorting_type, cache)) {
             cache.filter_configs = new_filter_configs;
@@ -133,7 +134,7 @@ void TableController::OnFilterRequest(
         int num_results = view.NumRows();
 
         filter_response.set_filter_data_size(num_results);
-        int response_size = min(num_rows, num_results - start_index);
+        int response_size = std::min(num_rows, num_results - start_index);
         filter_response.set_request_end_index(start_index + response_size);
 
         auto num_columns = filter_request.column_indices_size();
@@ -154,7 +155,7 @@ void TableController::OnFilterRequest(
         }
 
         while (num_remaining_rows > 0) {
-            int chunk_size = min(num_remaining_rows, max_chunk_size);
+            int chunk_size = std::min(num_remaining_rows, max_chunk_size);
             int chunk_end_index = chunk_start_index + chunk_size;
             filter_response.set_subset_data_size(chunk_size);
             filter_response.set_subset_end_index(chunk_end_index);
@@ -186,8 +187,9 @@ void TableController::OnFileListRequest(
     const CARTA::CatalogListRequest& file_list_request, CARTA::CatalogListResponse& file_list_response) {
     fs::path root_path(_top_level_folder);
     fs::path file_path = GetPath(file_list_request.directory());
+    std::error_code error_code;
 
-    if (!fs::exists(file_path) || !fs::is_directory(file_path)) {
+    if (!fs::exists(file_path, error_code) || !fs::is_directory(file_path, error_code)) {
         file_list_response.set_success(false);
         file_list_response.set_message("Incorrect file path");
         return;
@@ -221,26 +223,33 @@ void TableController::OnFileListRequest(
                 break;
             }
 
-            if (fs::is_directory(entry)) {
+            // Skip files that can't be read
+            if (!fs::exists(entry, error_code)) {
+                continue;
+            }
+
+            if (fs::is_directory(entry, error_code)) {
                 try {
                     // Try to construct a directory iterator. If it fails, the directory is inaccessible
                     auto test_directory_iterator = fs::directory_iterator(entry);
-                    file_list_response.add_subdirectories(entry.path().filename().string());
+
+                    auto directory_info = file_list_response.add_subdirectories();
+                    directory_info->set_name(entry.path().filename().string());
+                    directory_info->set_item_count(GetNumItems(entry.path().string()));
+
+                    // Fill in file time
+                    struct stat file_stats;
+                    stat(entry.path().c_str(), &file_stats);
+                    directory_info->set_date(file_stats.st_mtim.tv_sec);
                 } catch (fs::filesystem_error) {
                     // Skip inaccessible folders
                     continue;
                 }
-            } else if (fs::is_regular_file(entry) && fs::exists(entry)) {
-                uint32_t file_magic_number = GetMagicNumber(entry.path().string());
-                CARTA::CatalogFileType file_type;
-                if (file_magic_number == XML_MAGIC_NUMBER) {
-                    file_type = CARTA::VOTable;
-                } else if (file_magic_number == FITS_MAGIC_NUMBER) {
-                    file_type = CARTA::FITSTable;
-                } else {
+            } else if (fs::is_regular_file(entry, error_code)) {
+                auto file_type = GuessTableType(entry.path(), file_list_request.filter_mode() == CARTA::FileListFilterMode::Content);
+                if (file_type == CARTA::Unknown && file_list_request.filter_mode() != CARTA::FileListFilterMode::AllFiles) {
                     continue;
                 }
-
                 // Fill the file info
                 auto file_info = file_list_response.add_files();
                 file_info->set_name(entry.path().filename().string());
@@ -274,8 +283,9 @@ void TableController::OnFileListRequest(
 void TableController::OnFileInfoRequest(
     const CARTA::CatalogFileInfoRequest& file_info_request, CARTA::CatalogFileInfoResponse& file_info_response) {
     fs::path file_path = GetPath(file_info_request.directory(), file_info_request.name());
+    std::error_code error_code;
 
-    if (!fs::exists(file_path) || !fs::is_regular_file(file_path)) {
+    if (!fs::exists(file_path, error_code) || !fs::is_regular_file(file_path, error_code)) {
         file_info_response.set_success(false);
         file_info_response.set_message("Incorrect file path");
         return;
@@ -293,7 +303,7 @@ void TableController::OnFileInfoRequest(
     file_info->set_name(file_path.filename().string());
     file_info->set_type(table.Type());
     file_info->set_file_size(fs::file_size(file_path));
-    string file_info_string = fmt::format("Name: {}\n", file_info->name());
+    std::string file_info_string = fmt::format("Name: {}\n", file_info->name());
     if (table.Description().size()) {
         file_info_string += fmt::format("Description: {}\n", table.Description());
     }
@@ -333,7 +343,7 @@ void TableController::OnFileInfoRequest(
 }
 
 void TableController::ApplyFilter(const CARTA::FilterConfig& filter_config, TableView& view) {
-    string column_name = filter_config.column_name();
+    std::string column_name = filter_config.column_name();
     auto column = view.GetTable()[column_name];
     if (!column) {
         spdlog::error("Could not filter on non-existing column \"{}\"", column_name);
@@ -402,7 +412,7 @@ fs::path TableController::GetPath(std::string directory, std::string name) {
 
         // Remove leading /
         auto start_index = directory.find_first_not_of('/');
-        if (start_index != 0 && start_index != string::npos) {
+        if (start_index != 0 && start_index != std::string::npos) {
             directory = directory.substr(start_index);
         }
 

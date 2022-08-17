@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -14,19 +14,21 @@
 #include <casacore/casa/Arrays/ArrayMath.h>
 #include <casacore/images/Images/ImageStatistics.h>
 
-void CalcBasicStats(const std::vector<float>& data, BasicStats<float>& stats) {
+namespace carta {
+
+void CalcBasicStats(BasicStats<float>& stats, const float* data, const size_t data_size) {
     // Calculate stats in BasicStats struct
-    BasicStatsCalculator<float> mm(data);
-    mm.reduce(0, data.size());
+    BasicStatsCalculator<float> mm(data, data_size);
+    mm.reduce();
     stats = mm.GetStats();
 }
 
-carta::Histogram CalcHistogram(int num_bins, const BasicStats<float>& stats, const std::vector<float>& data) {
-    if ((stats.min_val == std::numeric_limits<float>::max()) || (stats.max_val == std::numeric_limits<float>::min()) || data.empty()) {
+Histogram CalcHistogram(int num_bins, const BasicStats<float>& stats, const float* data, const size_t data_size) {
+    if ((stats.min_val == std::numeric_limits<float>::max()) || (stats.max_val == std::numeric_limits<float>::min()) || data_size == 0) {
         // empty / NaN region
-        return carta::Histogram(1, 0, 0, {});
+        return Histogram(1, 0, 0, data, data_size);
     } else {
-        return carta::Histogram(num_bins, stats.min_val, stats.max_val, data);
+        return Histogram(num_bins, stats.min_val, stats.max_val, data, data_size);
     }
 }
 
@@ -171,3 +173,4 @@ bool CalcStatsValues(std::map<CARTA::StatsType, std::vector<double>>& stats_valu
 
     return true;
 }
+} // namespace carta

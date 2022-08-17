@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -19,7 +19,7 @@
 #include <carta-protobuf/region_file_info.pb.h>
 #include <carta-protobuf/region_list.pb.h>
 
-#include "../Util.h"
+namespace carta {
 
 class FileListHandler {
 public:
@@ -47,12 +47,13 @@ public:
 
 private:
     // ICD: File/Region list response
-    void GetFileList(CARTA::FileListResponse& file_list, std::string folder, ResultMsg& result_msg, bool region_list = false);
+    void GetFileList(CARTA::FileListResponse& file_list, std::string folder, ResultMsg& result_msg, CARTA::FileListFilterMode filter_mode,
+        bool region_list = false);
 
-    bool FillRegionFileInfo(CARTA::FileInfo& file_info, const string& filename, CARTA::FileType type = CARTA::FileType::UNKNOWN);
+    bool FillRegionFileInfo(CARTA::FileInfo& file_info, const std::string& filename, CARTA::FileType type = CARTA::FileType::UNKNOWN,
+        bool determine_file_type = true);
     void GetRegionFileContents(std::string& full_name, std::vector<std::string>& file_contents);
     void GetRelativePath(std::string& folder);
-    CARTA::FileType GetRegionType(const std::string& filename); // parse first line for CRTF or DS9
 
     // lock on file list handler
     std::mutex _file_list_mutex;
@@ -65,5 +66,7 @@ private:
     volatile bool _first_report_made;
     std::function<void(CARTA::ListProgress)> _progress_callback;
 };
+
+} // namespace carta
 
 #endif // CARTA_BACKEND__FILELISTHANDLER_H_

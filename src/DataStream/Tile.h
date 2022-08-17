@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -10,6 +10,8 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+
+namespace carta {
 
 struct Tile {
     int32_t x;
@@ -39,6 +41,15 @@ struct Tile {
         double total_layers = ceil(log2(max_mip));
         return pow(2.0, total_layers - layer);
     }
+
+    static int32_t MipToLayer(int32_t mip, int32_t image_width, int32_t image_height, int32_t tile_width, int32_t tile_height) {
+        double total_tiles_x = ceil((double)(image_width) / tile_width);
+        double total_tiles_y = ceil((double)(image_height) / tile_height);
+        double max_mip = std::max(total_tiles_x, total_tiles_y);
+        return ceil(log2(max_mip / mip));
+    }
 };
+
+} // namespace carta
 
 #endif // CARTA_BACKEND__TILE_H_

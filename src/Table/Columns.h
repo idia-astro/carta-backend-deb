@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -57,13 +57,16 @@ public:
     std::string description;
     size_t data_type_size;
     size_t data_offset;
+
+protected:
+    bool _is_logical_field = false;
 };
 
 template <class T>
 class DataColumn : public Column {
 public:
     std::vector<T> entries;
-    DataColumn(const std::string& name_chr);
+    DataColumn(const std::string& name_chr, bool is_logical_field = false);
     virtual ~DataColumn() = default;
     void SetFromText(const pugi::xml_text& text, size_t index) override;
     void SetFromValue(T value, size_t index);

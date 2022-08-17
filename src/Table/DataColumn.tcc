@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include "Threading.h"
+#include "ThreadingManager/ThreadingManager.h"
 
 namespace carta {
 
@@ -27,12 +27,17 @@ T clamp(T val, const T& min_val, const T& max_val) {
 }
 
 template <class T>
-DataColumn<T>::DataColumn(const std::string& name_chr) : Column(name_chr) {
+DataColumn<T>::DataColumn(const std::string& name_chr, bool is_logical_field) : Column(name_chr) {
+    _is_logical_field = is_logical_field;
     // Assign type based on template type
     if constexpr (std::is_same_v<T, std::string>) {
         data_type = CARTA::String;
     } else if constexpr (std::is_same_v<T, uint8_t>) {
-        data_type = CARTA::Uint8;
+        if (_is_logical_field) {
+            data_type = CARTA::Bool;
+        } else {
+            data_type = CARTA::Uint8;
+        }
     } else if constexpr (std::is_same_v<T, int8_t>) {
         data_type = CARTA::Int8;
     } else if constexpr (std::is_same_v<T, uint16_t>) {
@@ -51,8 +56,6 @@ DataColumn<T>::DataColumn(const std::string& name_chr) : Column(name_chr) {
         data_type = CARTA::Float;
     } else if constexpr (std::is_same_v<T, double>) {
         data_type = CARTA::Double;
-    } else if constexpr (std::is_same_v<T, bool>) {
-        data_type = CARTA::Bool;
     } else {
         data_type = CARTA::UnsupportedType;
     }
@@ -71,6 +74,11 @@ T DataColumn<T>::FromText(const pugi::xml_text& text) {
     // Parse properly based on template type or traits
     if constexpr (std::is_same_v<T, std::string>) {
         return text.as_string();
+    } else if constexpr (std::is_same_v<T, uint8_t>) {
+        if (_is_logical_field) {
+            return text.as_bool() ? 1 : 0;
+        }
+        return text.as_int(0);
     } else if constexpr (std::is_same_v<T, double>) {
         return text.as_double(std::numeric_limits<T>::quiet_NaN());
     } else if constexpr (std::is_floating_point_v<T>) {
@@ -193,7 +201,7 @@ void DataColumn<T>::FilterIndices(IndexList& existing_indices, bool is_subset, C
         size_t num_entries = entries.size();
 
         if (is_subset) {
-            for (auto i : existing_indices) {
+            for (const auto& i : existing_indices) {
                 // Skip invalid entries
                 if (i < 0 || i >= num_entries) {
                     continue;
@@ -268,14 +276,7 @@ void DataColumn<T>::FillColumnData(
     CARTA::ColumnData& column_data, bool fill_subset, const IndexList& indices, int64_t start, int64_t end) const {
     column_data.set_data_type(data_type);
     auto values = GetColumnData(fill_subset, indices, start, end);
-
-    // Workaround to prevent issues with Safari's lack of BigInt support
-    if (data_type == CARTA::Int64 || data_type == CARTA::Uint64) {
-        auto double_values = std::vector<double>(values.begin(), values.end());
-        column_data.set_binary_data(double_values.data(), double_values.size() * sizeof(T));
-    } else {
-        column_data.set_binary_data(values.data(), values.size() * sizeof(T));
-    }
+    column_data.set_binary_data(values.data(), values.size() * sizeof(T));
 }
 
 } // namespace carta

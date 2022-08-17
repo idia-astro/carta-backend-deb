@@ -1,5 +1,5 @@
 /* This file is part of the CARTA Image Viewer: https://github.com/CARTAvis/carta-backend
-   Copyright 2018, 2019, 2020, 2021 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
+   Copyright 2018-2022 Academia Sinica Institute of Astronomy and Astrophysics (ASIAA),
    Associated Universities, Inc. (AUI) and the Inter-University Institute for Data Intensive Astronomy (IDIA)
    SPDX-License-Identifier: GPL-3.0-or-later
 */
@@ -12,26 +12,19 @@
 #include <fitsio.h>
 
 #include "../Logger/Logger.h"
-#include "../Util.h"
-#include "DataColumn.tcc"
-#include "Threading.h"
 
-#ifdef _BOOST_FILESYSTEM_
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
-#else
-#include <filesystem>
-namespace fs = std::filesystem;
-#endif
+#include "DataColumn.tcc"
+#include "ThreadingManager/ThreadingManager.h"
+#include "Util/File.h"
+#include "Util/FileSystem.h"
 
 namespace carta {
-using namespace std;
 
 Table::Table(const string& filename, bool header_only) : _valid(false), _filename(filename), _num_rows(0), _available_rows(0) {
     fs::path file_path(filename);
-
-    if (!fs::exists(file_path)) {
-        _parse_error_message = "File does not exist!";
+    std::error_code error_code;
+    if (!fs::exists(file_path, error_code)) {
+        _parse_error_message = "File does not exist or cannot be read!";
         return;
     }
 
@@ -49,6 +42,11 @@ Table::Table(const string& filename, bool header_only) : _valid(false), _filenam
 string Table::GetHeader(const string& filename) {
     ifstream in(filename);
     string header_string;
+
+    if (!in.good()) {
+        return header_string;
+    }
+
     // Measure entire file size to ensure we don't read past EOF
     in.seekg(0, ios_base::end);
     size_t header_size = min(size_t(in.tellg()), size_t(MAX_HEADER_SIZE));
@@ -184,7 +182,7 @@ bool Table::PopulateParams(const pugi::xml_node& table) {
         if (description_node) {
             description = description_node.child_value();
         }
-        _params.emplace_back(carta::TableParam({name, description, value}));
+        _params.emplace_back(TableParam({name, description, value}));
     }
 
     return true;
