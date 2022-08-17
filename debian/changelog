@@ -1,6 +1,7 @@
 carta-backend (3.0.0-1~bionic1) bionic; urgency=medium
 
   * Bumped version to 3.0.0.
+  * 3.0.0-rc.0:
   * Added
     - Added support for image fitting with field of view (#150).
     - List frequency and velocity in file info for single channel image (#1152).
@@ -34,6 +35,102 @@ carta-backend (3.0.0-1~bionic1) bionic; urgency=medium
     - Fixed the crash when trying to load an unsupported image file (#1161).
     - Fixed including directories in region file list (#1159).
     - Fixed issue where NaN data was read incorrectly from a compressed FITS .fz image (#1143).
+  * 3.0.0-beta.3:
+  * Changed
+    - Removed gRPC service and moved scripting interface to HTTP server (#1022).
+    - Added more fine-grained commandline flags to enable and disable functions of the HTTP server.
+    - Optimised performance of image data cache (#967).
+    - Added exit on timeout flag to Linux desktop launcher (#989).
+    - Separated stdout and stderr logging (#869).
+  * Added
+    - Added moment map generation information to the header of generated images (#1024).
+    - Added support for creating CASA LEL images dynamically (#655).
+    - Added spatial and spectral range information to the file browser (#845).
+    - Added computed Stokes images and supported the analysis (profiles, contours, statistics, etc.) of them (#433).
+    - Added data type to file info and open complex image with amplitude expression (#520).
+    - Added ability to set a custom rest frequency for saving subimages. (#918).
+    - Added image fitter for multiple 2D Gaussian component fitting (#150).
+    - Added support for a custom carta-casacore script for updating casacore data in a local user directory (#961).
+    - Added support of vector field (polarization intensity/angle) calculations (#1002).
+    - Added spatial profiles for line/polyline regions (#796).
+  * Fixed
+    - Fixed problem with backend hanging rather than exiting after all sessions have disconnected (#988).
+    - Fixed handling of NaN values in downsampled spatial profiles (#987).
+    - Removed file id repetition in generated moments or PV images (#1003).
+    - Fixed linear coordinate conversion for matched images (#982).
+    - Fixed beam position angle unit displayed for CASA images (#1025).
+    - Fixed crash when saving certain PV images (#1009).
+    - Ensured that sessions are deleted correctly (#1048).
+    - Ensured that sessions are correctly assigned unique IDs (#1049).
+    - Corrected spatial range calculation to account for rotation (#1050).
+    - Fixed a bug in Stokes animation when playing backwards (#1053).
+    - Fixed inconsistent behaviour of top level folder setting (#1089).
+    - Fixed CRTF export bug for labelpos (#1012).
+    - Fixed DS9 import bug for region parameter with no unit (#1101).
+    - Fixed offset in center of offset axis of generated PV image (#1038).
+    - Fixed various memory leaks, and several memory errors uncovered by address sanitization.
+  * 3.0.0-beta.2b:
+  * Changed
+    - Removed the dependency on Intel TBB library by replacing the TBB mutexes with ones based on standard c++ ones.
+    - Replaced shared image loader pointer in the session class with a cache for multiple loaders, to avoid concurrency bugs when loading multiple images simultaneously.
+  * Added
+    - Added ability to guess file type by extension, rather than content (#1).
+    - Added support for circular/linear polarizations when generating hypercubes (#942).
+    - Added PV image generator for line regions (#794).
+  * Fixed
+    - Fixed hard crash when attempting to read files within a read-protected directory (#945).
+    - Fixed region histograms for moment images (#906).
+    - Fixed bug of duplicate histogram calculation (#905).
+    - Fixed issues when reading stokes information from the header (#942).
+    - Fixed restoring beam set from HISTORY (#935).
+    - Fixed FITS header bug for dropped keyword index (#912).
+    - Fixed DS9 export bug by increasing precision for degrees (#953).
+  * 3.0.0-beta.1b:
+  * Added
+    - Added unit test helper functions for generating FITS and HDF5 test image 
+      files.
+    - Introduced generic JSON object read/write/clearing for the REST API.
+    - Unit tests for filling spatial profiles.
+    - Added support for building on aarch64 Linux.
+    - Added directory info to file lists.
+    - Added support for using mipmapped datasets in HDF5 files to load 
+      downsampled data.
+    - Added a tile cache for loading full-resolution data from chunked HDF5 
+      files.
+    - Added mip and range options to spatial profile requests.
+    - Added support for for LINE and POLYLINE regions.
+    - Added support for fits.gz images using zlib.
+    - Added ping pong test for spectral line query.
+    - Added support for boolean columns in tables.
+    - Added support for Stokes in statistics and histogram widgets.
+    - Added spatial profile support to point regions.
+  * Changed
+    - Browser argument no longer marked as experimental.
+    - Developer code style scripts consolidated into one.
+    - Improved custom browser option so that the child process behaves 
+      consistently.
+    - The scripting interface can request a subset of a called action's return 
+      value, avoiding possible serialization problems.
+    - Changed "stokes" to "polarizations" in file info.
+  * Fixed
+    - Upgraded to uWebSockets v19.2.0 to fix garbled ICD messages (#848).
+    - Fixed issues with FITS headers processed by casacore (#460) by parsing the 
+      FITS header or HDF5 attributes directly.
+    - Added missing setting keyword for the starting folder (#857).
+    - Fixed a crash (#774) by adding a mutex lock.
+    - Improve the speed of HDF5 header parsing (#861) by using H5Aiterate2 to 
+      iterate over HDF5 attributes.
+    - Added a fallback legacy heuristic for detecting that HDF5 attributes 
+      should be interpreted as boolean.
+    - Fixed a caching bug affecting images which were changed on disk (#579).
+    - Fixed a wrapper script issue causing an invalid frontend URL to be 
+      generated on Linux without network access.
+    - Fixed control points record for polygon / line / polyline (#891).
+    - Fixed bug causing cube histogram to be generated even if it was available in an HDF5 file (#899).
+    - Fixed bug of missing cursor values for matched images (#900).
+  * Security
+    - Use a constant-time string comparison for checking token equality.
+    - Added a security token to the gRPC interface.
 
  -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 17 Aug 2022 12:01:04 +0200
 
