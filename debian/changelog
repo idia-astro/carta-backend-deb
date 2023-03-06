@@ -1,3 +1,9 @@
+carta-backend (3.0.1-1~focal1) focal; urgency=medium
+
+  * Backported security fix.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Mon, 06 Mar 2023 15:29:31 +0200
+
 carta-backend (3.0.0-1~focal1) focal; urgency=medium
 
   * Bumped version to 3.0.0.
