@@ -10,7 +10,7 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed,-rpath,/opt/carta-casacore/lib
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
-	      -DCMAKE_LIBRARY_ARCHITECTURE="$(DEB_TARGET_MULTIARCH)" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+	      -DCMAKE_LIBRARY_ARCHITECTURE="$(DEB_TARGET_MULTIARCH)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDEPLOYMENT_TYPE=deb
 
 override_dh_shlibdeps:
 	dh_shlibdeps -l/opt/carta-casacore/lib
