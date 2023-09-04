@@ -41,22 +41,25 @@ private:
 
     // Header entries
     casacore::Vector<casacore::String> FitsHeaderStrings(casacore::String& name, unsigned int hdu);
+    bool GetFITSHeader(std::shared_ptr<casacore::ImageInterface<float>> image, const std::string& hdu, casacore::ImageFITSHeaderInfo& fhi,
+        casacore::String& error_string);
     void AddEntriesFromHeaderStrings(
         const casacore::Vector<casacore::String>& headers, const std::string& hdu, CARTA::FileInfoExtended& extended_info);
     void ConvertHeaderValueToNumeric(const casacore::String& name, casacore::String& value, CARTA::HeaderEntry* entry);
     void FitsHeaderInfoToHeaderEntries(casacore::ImageFITSHeaderInfo& fhi, CARTA::FileInfoExtended& extended_info);
 
     // Computed entries
-    void AddDataTypeEntry(CARTA::FileInfoExtended& extended_info, casacore::DataType data_type);
-    void AddShapeEntries(CARTA::FileInfoExtended& extended_info, const casacore::IPosition& shape, int chan_axis, int depth_axis,
-        int stokes_axis, const std::vector<int>& render_axes);
+    void AddDataTypeEntry(CARTA::FileInfoExtended& extended_info, casacore::DataType data_type, casacore::DataType equivalent_type);
+    void AddShapeEntries(CARTA::FileInfoExtended& extended_info, const casacore::IPosition& shape, const std::vector<int>& spatial_axes,
+        int spectral_axis, int stokes_axis, const std::vector<int>& render_axes, int depth_axis,
+        casacore::Vector<casacore::String>& axes_names);
     void AddInitialComputedEntries(const std::string& hdu, CARTA::FileInfoExtended& extended_info, const std::string& filename,
         const std::vector<int>& render_axes, CompressedFits* compressed_fits = nullptr);
     void AddComputedEntries(CARTA::FileInfoExtended& extended_info, casacore::ImageInterface<float>* image,
-        const std::vector<int>& display_axes, bool use_image_for_entries);
-    void AddComputedEntriesFromHeaders(
-        CARTA::FileInfoExtended& extended_info, const std::vector<int>& display_axes, CompressedFits* compressed_fits = nullptr);
-    void AddBeamEntry(CARTA::FileInfoExtended& extended_info, const casacore::ImageBeamSet& beam_set);
+        const std::vector<int>& display_axes, int spectral_axis, int stokes_axis, bool use_image_for_entries, bool is_history_beam);
+    void AddComputedEntriesFromHeaders(CARTA::FileInfoExtended& extended_info, const std::vector<int>& display_axes, int spectral_axis,
+        int stokes_axis, CompressedFits* compressed_fits = nullptr);
+    void AddBeamEntry(CARTA::FileInfoExtended& extended_info, const casacore::ImageBeamSet& beam_set, bool is_history_beam);
     void AddCoordRanges(
         CARTA::FileInfoExtended& extended_info, const casacore::CoordinateSystem& coord_system, const casacore::IPosition& image_shape);
 
@@ -64,11 +67,11 @@ private:
     std::string MakeAngleString(const std::string& type, double val, const std::string& unit);
 
     // Convert Quantities and return formatted string
-    std::string ConvertCoordsToDeg(const casacore::Quantity& coord0, const casacore::Quantity& coord1);
+    std::string ConvertCoordsToDeg(const std::string& type, const casacore::Quantity& coord);
     std::string ConvertIncrementToArcsec(const casacore::Quantity& inc0, const casacore::Quantity& inc1);
 
-    void GetCoordNames(std::string& ctype1, std::string& ctype2, std::string& radesys, std::string& coord_name1, std::string& coord_name2,
-        std::string& projection);
+    void GetCoordNames(std::string& ctype1, std::string& ctype2, std::string& radesys, std::string& projection);
+    void SplitCtypeDescriptor(std::string& ctype, std::string& descriptor);
 
     std::shared_ptr<FileLoader> _loader;
     CARTA::FileType _type;

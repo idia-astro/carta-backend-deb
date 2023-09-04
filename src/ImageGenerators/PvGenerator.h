@@ -12,31 +12,39 @@
 
 #include <carta-protobuf/pv_request.pb.h>
 
-#include "../ImageData/FileLoader.h"
+#include "Frame/Frame.h"
+#include "ImageData/FileLoader.h"
 #include "ImageGenerator.h"
 
 namespace carta {
 
 class PvGenerator {
 public:
-    PvGenerator(int file_id, const std::string& filename);
+    PvGenerator();
+    ~PvGenerator() = default;
 
-    bool GetPvImage(std::shared_ptr<casacore::ImageInterface<float>> input_image, const casacore::Matrix<float>& pv_data,
-        const casacore::Quantity& offset_increment, int stokes, GeneratedImage& pv_image, std::string& message);
+    // For PV generator (not preview)
+    void SetFileIdName(int file_id, int index, const std::string& filename, bool is_preview = false);
+
+    // Create generated PV image from input data. If reverse, [spectral, offset] instead of normal [offset, spectral].
+    // Returns generated image and success, with message if failure.
+    bool GetPvImage(const std::shared_ptr<Frame>& frame, const casacore::Matrix<float>& pv_data, casacore::IPosition& pv_shape,
+        const casacore::Quantity& offset_increment, int start_chan, int stokes, bool reverse, GeneratedImage& pv_image,
+        std::string& message);
 
 private:
-    std::string GetPvFilename(const std::string& filename);
+    void SetPvImageName(const std::string& filename, int index, bool is_preview);
 
-    bool SetupPvImage(std::shared_ptr<casacore::ImageInterface<float>> input_image, casacore::IPosition& pv_shape, int stokes,
-        const casacore::Quantity& offset_increment, std::string& message);
-    casacore::CoordinateSystem GetPvCoordinateSystem(const casacore::CoordinateSystem& input_csys, casacore::IPosition& pv_shape,
-        int stokes, const casacore::Quantity& offset_increment);
-    GeneratedImage GetGeneratedImage();
+    std::shared_ptr<casacore::ImageInterface<casacore::Float>> SetupPvImage(
+        const std::shared_ptr<casacore::ImageInterface<float>>& input_image, const std::shared_ptr<casacore::CoordinateSystem>& input_csys,
+        casacore::IPosition& pv_shape, int stokes, const casacore::Quantity& offset_increment, double spectral_refval, bool reverse,
+        std::string& message);
+    casacore::CoordinateSystem GetPvCoordinateSystem(const std::shared_ptr<casacore::CoordinateSystem>& input_csys,
+        casacore::IPosition& pv_shape, int stokes, const casacore::Quantity& offset_increment, double spectral_refval, bool reverse);
 
     // GeneratedImage parameters
     int _file_id;
     std::string _name;
-    std::shared_ptr<casacore::ImageInterface<casacore::Float>> _image;
 };
 
 } // namespace carta

@@ -52,6 +52,7 @@ struct EventHeader {
     uint16_t icd_version;
     uint32_t request_id;
 };
+struct HistogramConfig;
 } // namespace carta
 
 class Message {
@@ -62,8 +63,8 @@ public:
     // Request messages
     static CARTA::RegisterViewer RegisterViewer(uint32_t session_id, std::string api_key, uint32_t client_feature_flags);
     static CARTA::CloseFile CloseFile(int32_t file_id);
-    static CARTA::OpenFile OpenFile(std::string directory, std::string file, std::string hdu, int32_t file_id,
-        CARTA::RenderMode render_mode = CARTA::RenderMode::RASTER, bool lel_expr = false);
+    static CARTA::OpenFile OpenFile(std::string directory, std::string file, bool lel_expr, std::string hdu, int32_t file_id,
+        bool support_aips_beam, CARTA::RenderMode render_mode = CARTA::RenderMode::RASTER);
     static CARTA::SetImageChannels SetImageChannels(int32_t file_id, int32_t channel, int32_t stokes,
         CARTA::CompressionType compression_type = CARTA::CompressionType::NONE, float compression_quality = -1);
     static CARTA::SetCursor SetCursor(int32_t file_id, float x, float y);
@@ -91,7 +92,7 @@ public:
     static CARTA::IntBounds IntBounds(int32_t min, int32_t max);
     static CARTA::FloatBounds FloatBounds(float min, float max);
     static CARTA::MomentRequest MomentsRequest(int32_t file_id, int32_t region_id, CARTA::MomentAxis moments_axis,
-        CARTA::MomentMask moment_mask, CARTA::IntBounds spectral_range, CARTA::FloatBounds pixel_range);
+        CARTA::MomentMask moment_mask, CARTA::IntBounds spectral_range, CARTA::FloatBounds pixel_range, bool keep = false);
     static CARTA::ImageProperties ImageProperties(std::string directory, std::string file, std::string hdu, int32_t file_id,
         CARTA::RenderMode render_mode, int32_t channel, int32_t stokes);
     static CARTA::ResumeSession ResumeSession(std::vector<CARTA::ImageProperties> images);
@@ -104,6 +105,7 @@ public:
     static CARTA::SetVectorOverlayParameters SetVectorOverlayParameters(uint32_t file_id, uint32_t mip, bool fractional, double threshold,
         bool debiasing, double q_error, double u_error, int32_t stokes_intensity, int32_t stokes_angle,
         const CARTA::CompressionType& compression_type, float compression_quality);
+    static CARTA::ImageBounds ImageBounds(int32_t x_min, int32_t x_max, int32_t y_min, int32_t y_max);
     static CARTA::SetRegion SetRegion(int32_t file_id, int32_t region_id, const CARTA::RegionInfo& region_info);
     static CARTA::ConcatStokesFiles ConcatStokesFiles(
         int32_t file_id, const google::protobuf::RepeatedPtrField<CARTA::StokesFile>& stokes_files);
@@ -122,21 +124,25 @@ public:
         int32_t stokes, float value, int32_t start, int32_t end, std::vector<float>& profile, std::string& coordinate, int32_t mip,
         CARTA::ProfileAxisType axis_type, float crpix, float crval, float cdelt, std::string& unit);
     static CARTA::SpatialProfileData SpatialProfileData(int32_t x, int32_t y, int32_t channel, int32_t stokes, float value);
-    static CARTA::RasterTileSync RasterTileSync(int32_t file_id, int32_t channel, int32_t stokes, int32_t animation_id, bool end_sync);
+    static CARTA::RasterTileSync RasterTileSync(
+        int32_t file_id, int32_t channel, int32_t stokes, int32_t sync_id, int32_t animation_id, int32_t tile_count, bool end_sync);
     static CARTA::SetRegionAck SetRegionAck(int32_t region_id, bool success, std::string err_message);
     static CARTA::RegisterViewerAck RegisterViewerAck(
         uint32_t session_id, bool success, const std::string& status, const CARTA::SessionType& type);
     static CARTA::MomentProgress MomentProgress(int32_t file_id, float progress);
-    static CARTA::PvProgress PvProgress(int32_t file_id, float progress);
+    static CARTA::PvRequest PvRequest(
+        int32_t file_id, int32_t region_id, int32_t width, int z_min = -1, int32_t z_max = -1, bool reverse = false, bool keep = false);
+    static CARTA::PvProgress PvProgress(int32_t file_id, float progress, int32_t preview_id = 0);
+    static CARTA::FittingProgress FittingProgress(int32_t file_id, float progress);
     static CARTA::RegionHistogramData RegionHistogramData(
-        int32_t file_id, int32_t region_id, int32_t channel, int32_t stokes, float progress);
+        int32_t file_id, int32_t region_id, int32_t channel, int32_t stokes, float progress, const carta::HistogramConfig& hist_config);
     static CARTA::ContourImageData ContourImageData(
         int32_t file_id, uint32_t reference_file_id, int32_t channel, int32_t stokes, double progress);
     static CARTA::VectorOverlayTileData VectorOverlayTileData(int32_t file_id, int32_t channel, int32_t stokes_intensity,
         int32_t stokes_angle, const CARTA::CompressionType& compression_type, float compression_quality);
     static CARTA::ErrorData ErrorData(const std::string& message, std::vector<std::string> tags, CARTA::ErrorSeverity severity);
     static CARTA::FileInfo FileInfo(const std::string& name, CARTA::FileType type, int64_t size = 0, const std::string& hdu = "");
-    static CARTA::RasterTileData RasterTileData(int32_t file_id, int32_t animation_id);
+    static CARTA::RasterTileData RasterTileData(int32_t file_id, int32_t sync_id, int32_t animation_id);
     static CARTA::StartAnimationAck StartAnimationAck(bool success, int32_t animation_id, const std::string& message);
     static CARTA::ImportRegionAck ImportRegionAck(bool success, const std::string& message);
     static CARTA::RegionStatsData RegionStatsData(int32_t file_id, int32_t region_id, int32_t channel, int32_t stokes);

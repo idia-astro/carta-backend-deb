@@ -21,6 +21,10 @@
 
 namespace carta {
 
+static std::unordered_map<int, casacore::DataType> bitpix_types(
+    {{8, casacore::DataType::TpChar}, {16, casacore::DataType::TpShort}, {32, casacore::DataType::TpInt}, {64, casacore::DataType::TpInt64},
+        {-32, casacore::DataType::TpFloat}, {-64, casacore::DataType::TpDouble}});
+
 class CartaFitsImage : public casacore::ImageInterface<float> {
 public:
     // Construct an image from a pre-existing file.
@@ -60,6 +64,7 @@ private:
     fitsfile* OpenFile();
     void CloseFile();
     void CloseFileIfError(const int& status, const std::string& error);
+    void CheckFileStatus(fitsfile* fptr);
 
     void SetUpImage();
     void GetFitsHeaderString(int& nheaders, std::string& hdrstr);
@@ -85,22 +90,26 @@ private:
     bool doGetNanMaskSlice(casacore::Array<bool>& buffer, const casacore::Slicer& section);
 
     template <typename T>
-    bool GetDataSubset(fitsfile* fptr, int datatype, const casacore::Slicer& section, casacore::Array<float>& buffer);
+    bool GetDataSubset(int datatype, const casacore::Slicer& section, casacore::Array<float>& buffer);
     template <typename T>
-    bool GetPixelMask(fitsfile* fptr, int datatype, const casacore::IPosition& shape, casacore::ArrayLattice<bool>& mask);
+    bool GetPixelMask(int datatype, const casacore::IPosition& shape, casacore::ArrayLattice<bool>& mask);
     template <typename T>
     bool GetNanPixelMask(casacore::ArrayLattice<bool>& mask);
 
     std::string _filename;
     unsigned int _hdu;
 
-    // File pointer for open file; nullptr when closed
+    // File pointer for open file; nullptr when closed.
+    // cfitsio docs: "Different threads should not share the same 'fitsfile' pointer to read an opened FITS file
+    // unless locks are placed around the calls to the CFITSIO reading routines."
     fitsfile* _fptr;
+    std::mutex _fptr_mutex;
 
     // FITS header values
     bool _is_compressed;
     casacore::IPosition _shape;
-    int _datatype; // bitpix value
+    int _bitpix;
+    int _equiv_bitpix;
     bool _has_blanks;
     casacore::Vector<casacore::String> _all_header_strings;
     casacore::Vector<casacore::String> _image_header_strings;

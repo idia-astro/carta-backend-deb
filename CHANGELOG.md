@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-rc.0]
+
+### Changed
+* Support animation playback with matched images in multi-panel view ([#1860](https://github.com/CARTAvis/carta-frontend/issues/1860)).
+
+### Fixed
+* Prevent the installation of pugixml library files ([#1261](https://github.com/CARTAvis/carta-backend/issues/1261)).
+* Fixed spatial profile for polyline in widefield image ([#1258](https://github.com/CARTAvis/carta-backend/issues/1258)).
+* Fixed regression failure of HDF5 PV image due to profile caching in the HDF5 loader ([#1259](https://github.com/CARTAvis/carta-backend/issues/1259)).
+* Removed duplicate image histogram data sent to the frontend ([#1266](https://github.com/CARTAvis/carta-backend/issues/1266)).
+* Fixed FITS header and data errors ([#1233](https://github.com/CARTAvis/carta-backend/issues/1233), [#1265](https://github.com/CARTAvis/carta-backend/issues/1265)).
+* Fixed the problem of resuming LEL images ([#1226](https://github.com/CARTAvis/carta-backend/issues/1226)).
+* Fixed the case-sensitive of reading BUNIT from a file header ([#1187](https://github.com/CARTAvis/carta-backend/issues/1187)).
+* Fixed the crash when reading beam table with 64-bit floats ([#1166](https://github.com/CARTAvis/carta-backend/issues/1166)).
+* Fixed region spectral profile from FITS gz image ([#1271](https://github.com/CARTAvis/carta-backend/issues/1271)).
+* Fixed the lack of mask for LEL images ([#1291](https://github.com/CARTAvis/carta-backend/issues/1291)).
+* Fixed file path to save generated image ([#1252](https://github.com/CARTAvis/carta-backend/issues/1252)).
+* Fixed missing tiles issue ([#1282](https://github.com/CARTAvis/carta-backend/issues/1282)).
+* Fixed the crash of loading JCMT-SCUBA2 FITS images ([#1301](https://github.com/CARTAvis/carta-backend/issues/1301)).
+* Fixed updating the PV preview for a matched image ([#1304](https://github.com/CARTAvis/carta-backend/issues/1304)).
+
+## [4.0.0-beta.1]
+
+### Added
+* Added a check of averaging width when calculating line/polyline spatial profiles or PV images ([#1174](https://github.com/CARTAvis/carta-backend/issues/1174)).
+* Added support for fitting images with regions, fixed parameters, a background offset, and different solvers; added support for generating model and residual images, estimating progress, and cancelling tasks ([#150](https://github.com/CARTAvis/carta-backend/issues/150)).
+* Added PV generator features for spectral range, reversed axes, and keeping previous image ([#1175](https://github.com/CARTAvis/carta-backend/issues/1175), [#1176](https://github.com/CARTAvis/carta-backend/issues/1176), [#1177](https://github.com/CARTAvis/carta-backend/issues/1177)).
+* Added a debug config flag for disabling runtime config ([#1213](https://github.com/CARTAvis/carta-backend/issues/1213)).
+* Added support to keep previously generated moment images ([#1202](https://github.com/CARTAvis/carta-backend/issues/1202)).
+* Added pugixml as a third-party library with the option PUGIXML_COMPACT enabled ([#1217](https://github.com/CARTAvis/carta-backend/issues/1217)).
+* Added automatically generated documentation with Doxygen ([#1215](https://github.com/CARTAvis/carta-backend/issues/1215)).
+* Added support for loading swapped-axes image cubes ([#1178](https://github.com/CARTAvis/carta-backend/issues/1178)).
+* Added support for annotation regions ([#340](https://github.com/CARTAvis/carta-backend/issues/340)).
+* Added support for customizing histogram calculations ([#829](https://github.com/CARTAvis/carta-backend/issues/829)).
+* Added support for PV preview ([#795](https://github.com/CARTAvis/carta-backend/issues/795)).
+
+### Changed
+* Removed CASA CRTF parser for performance and annotation region support ([#1219](https://github.com/CARTAvis/carta-backend/issues/1219)).
+* Adjusted image fitting error calculation considering correlated noise; added integrated flux information in the fitting result ([#1277](https://github.com/CARTAvis/carta-backend/issues/1277)).
+
+### Fixed
+* Fixed issues with AIPS velocity axis by restoring previous casacore headers ([#1771](https://github.com/CARTAvis/carta-frontend/issues/1771)).
+* Fixed error in regions when resuming session. ([#1210](https://github.com/CARTAvis/carta-backend/issues/1210)).
+* Fixed crash when exporting matched region ([#1205](https://github.com/CARTAvis/carta-backend/issues/1205), [#1208](https://github.com/CARTAvis/carta-backend/issues/1208)).
+* Fixed region import with space in region name ([#1188](https://github.com/CARTAvis/carta-backend/issues/1188)).
+* Fixed cfitsio 4.2.0 fits_read_key abort ([#1231](https://github.com/CARTAvis/carta-backend/issues/1231)).
+* Fixed failure loading CASA image due to FITS headers error ([#1239](https://github.com/CARTAvis/carta-backend/issues/1239)).
+* Fixed incorrect PV image orientation if the cube has projection distortion ([#1244](https://github.com/CARTAvis/carta-backend/issues/1244)).
+* Fixed crash following use of an incorrect session ID ([#1248](https://github.com/CARTAvis/carta-backend/issues/1248)).
+* Fixed header angle formatting error with non-angle unit ([#1218](https://github.com/CARTAvis/carta-backend/issues/1218)).
+
 ## [3.0.0]
 
 ### Added
