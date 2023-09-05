@@ -115,7 +115,7 @@ public:
             } else if (computed_entries.name() == "HDU") {
                 CheckHeaderEntry(computed_entries, "0", CARTA::EntryType::STRING);
             } else if (computed_entries.name() == "Shape") {
-                CheckHeaderEntry(computed_entries, "[6, 6, 5, 1]", CARTA::EntryType::STRING);
+                CheckHeaderEntry(computed_entries, "[6, 6, 5, 1] (RA, DEC, FREQ, STOKES)", CARTA::EntryType::STRING);
             } else if (computed_entries.name() == "Number of channels") {
                 CheckHeaderEntry(computed_entries, "5", CARTA::EntryType::INT, 5);
             } else if (computed_entries.name() == "Number of polarizations") {
@@ -186,8 +186,10 @@ public:
         CARTA::FileInfoResponse response;
         auto& file_info = *response.mutable_file_info();
         std::map<std::string, CARTA::FileInfoExtended> extended_info_map;
+        bool support_aips_beam(false);
         string message;
-        bool success = FillExtendedFileInfo(extended_info_map, file_info, request.directory(), request.file(), request.hdu(), message);
+        bool success = FillExtendedFileInfo(
+            extended_info_map, file_info, request.directory(), request.file(), request.hdu(), support_aips_beam, message);
         if (success) {
             *response.mutable_file_info_extended() = {extended_info_map.begin(), extended_info_map.end()};
         }
@@ -243,8 +245,9 @@ TEST_F(FileExtInfoLoaderTest, FitsHistoryEntries) {
     std::string hdu;
     CARTA::FileInfoExtended extended_info;
     CARTA::FileInfo file_info;
-    bool success = t_session.FillExtendedFileInfo(
-        extended_info, file_info, TestRoot() / "data" / "images" / "fits", "noise_10px_10px.fits", hdu, message, full_name);
+    bool support_aips_beam(false);
+    bool success = t_session.FillExtendedFileInfo(extended_info, file_info, TestRoot() / "data" / "images" / "fits", "noise_10px_10px.fits",
+        hdu, support_aips_beam, message, full_name);
     EXPECT_EQ(success, true);
 
     int num_history_entries = 0;

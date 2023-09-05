@@ -61,23 +61,45 @@ FileLoader* FileLoader::GetLoader(const std::string& filename, const std::string
     return nullptr;
 }
 
-FileLoader* FileLoader::GetLoader(std::shared_ptr<casacore::ImageInterface<float>> image) {
+FileLoader* FileLoader::GetLoader(std::shared_ptr<casacore::ImageInterface<float>> image, const std::string& filename) {
     if (image) {
-        return new ImagePtrLoader(image);
+        return new ImagePtrLoader(image, filename);
     } else {
         spdlog::error("Fail to assign an image pointer!");
         return nullptr;
     }
 }
 
-FileLoader::FileLoader(const std::string& filename, const std::string& directory, bool is_gz)
-    : _filename(filename), _directory(directory), _is_gz(is_gz), _modify_time(0), _num_dims(0), _has_pixel_mask(false), _stokes_cdelt(0) {
+FileLoader::FileLoader(const std::string& filename, const std::string& directory, bool is_gz, bool is_generated)
+    : _filename(filename),
+      _directory(directory),
+      _is_gz(is_gz),
+      _is_generated(is_generated),
+      _modify_time(0),
+      _support_aips_beam(false),
+      _is_history_beam(false),
+      _num_dims(0),
+      _has_pixel_mask(false),
+      _stokes_cdelt(0) {
     // Set initial modify time
     ImageUpdated();
 }
 
 bool FileLoader::CanOpenFile(std::string& /*error*/) {
     return true;
+}
+
+void FileLoader::OpenFile(const std::string& hdu) {
+    AllocateImage(hdu);
+
+    // Normalize the upper/lower cases of BUNIT string from header
+    if (_image) {
+        casacore::String bunit = _image->units().getName();
+        NormalizeUnit(bunit);
+        if (bunit != _image->units().getName() && casacore::UnitVal::check(bunit)) {
+            _image->setUnits(casacore::Unit(bunit));
+        }
+    }
 }
 
 typename FileLoader::ImageRef FileLoader::GetImage(bool check_data_type) {
@@ -109,7 +131,7 @@ bool FileLoader::ImageUpdated() {
 
     // Do not close compressed image, or run getstat on generated image (no filename, in memory only) or
     // LEL ImageExpr (directory is set, filename is LEL expression)
-    if (_is_gz || _filename.empty() || !_directory.empty()) {
+    if (_is_gz || _is_generated || !_directory.empty()) {
         return changed;
     }
 
@@ -168,9 +190,11 @@ std::shared_ptr<casacore::CoordinateSystem> FileLoader::GetCoordinateSystem(cons
     return std::make_shared<casacore::CoordinateSystem>();
 }
 
-bool FileLoader::FindCoordinateAxes(casacore::IPosition& shape, int& spectral_axis, int& z_axis, int& stokes_axis, std::string& message) {
+bool FileLoader::FindCoordinateAxes(casacore::IPosition& shape, std::vector<int>& spatial_axes, int& spectral_axis, int& stokes_axis,
+    std::vector<int>& render_axes, int& z_axis, std::string& message) {
     // Return image shape and axes for image. Spectral axis may or may not be z axis.
     // All parameters are return values.
+    spatial_axes.assign(2, -1);
     spectral_axis = -1;
     z_axis = -1;
     stokes_axis = -1;
@@ -194,15 +218,33 @@ bool FileLoader::FindCoordinateAxes(casacore::IPosition& shape, int& spectral_ax
         return false;
     }
 
-    // Determine which axes will be rendered
-    std::vector<int> render_axes = GetRenderAxes();
+    // Get spectral and stokes axis
+    spectral_axis = _coord_sys->spectralAxisNumber();
+    stokes_axis = _coord_sys->polarizationAxisNumber();
+
+    // Set render axes are the first two axes that are not stokes
+    render_axes.resize(0);
+    for (int i = 0; i < _num_dims && render_axes.size() < 2; ++i) {
+        if (i != stokes_axis) {
+            render_axes.push_back(i);
+        }
+    }
+
     _width = shape(render_axes[0]);
     _height = shape(render_axes[1]);
     _image_plane_size = _width * _height;
 
-    // Spectral and stokes axis
-    spectral_axis = _coord_sys->spectralAxisNumber();
-    stokes_axis = _coord_sys->polarizationAxisNumber();
+    // Find spatial axes
+    if (_coord_sys->hasDirectionCoordinate()) {
+        auto tmp_axes = _coord_sys->directionAxesNumbers();
+        spatial_axes[0] = tmp_axes[0];
+        spatial_axes[1] = tmp_axes[1];
+    } else if (_coord_sys->hasLinearCoordinate()) {
+        auto tmp_axes = _coord_sys->linearAxesNumbers();
+        for (int i = 0; i < casacore::min(tmp_axes.size(), 2); ++i) { // Assume the first two linear axes are spatial axes, if any
+            spatial_axes[i] = tmp_axes[i];
+        }
+    }
 
     // 2D image
     if (_num_dims == 2) {
@@ -275,52 +317,6 @@ bool FileLoader::FindCoordinateAxes(casacore::IPosition& shape, int& spectral_ax
     return true;
 }
 
-std::vector<int> FileLoader::GetRenderAxes() {
-    // Determine which axes will be rendered
-    std::vector<int> axes;
-
-    if (!_render_axes.empty()) {
-        axes = _render_axes;
-        return axes;
-    }
-
-    // Default unless PV image
-    axes.assign({0, 1});
-
-    if (_image_shape.size() > 2) {
-        // Normally, use direction axes
-        if (_coord_sys->hasDirectionCoordinate()) {
-            casacore::Vector<casacore::Int> dir_axes = _coord_sys->directionAxesNumbers();
-            axes[0] = dir_axes[0];
-            axes[1] = dir_axes[1];
-        } else if (_coord_sys->hasLinearCoordinate()) {
-            // Check for PV image: [Linear, Spectral] axes
-            // Returns -1 if no spectral axis
-            int spectral_axis = _coord_sys->spectralAxisNumber();
-
-            if (spectral_axis >= 0) {
-                // Find valid (not -1) linear axes
-                std::vector<int> valid_axes;
-                casacore::Vector<casacore::Int> lin_axes = _coord_sys->linearAxesNumbers();
-                for (auto axis : lin_axes) {
-                    if (axis >= 0) {
-                        valid_axes.push_back(axis);
-                    }
-                }
-
-                // One linear + spectral axis = pV image
-                if (valid_axes.size() == 1) {
-                    valid_axes.push_back(spectral_axis);
-                    axes = valid_axes;
-                }
-            }
-        }
-    }
-
-    _render_axes = axes;
-    return axes;
-}
-
 bool FileLoader::GetSlice(casacore::Array<float>& data, const StokesSlicer& stokes_slicer) {
     StokesSource stokes_source = stokes_slicer.stokes_source;
     casacore::Slicer slicer = stokes_slicer.slicer;
@@ -343,7 +339,29 @@ bool FileLoader::GetSlice(casacore::Array<float>& data, const StokesSlicer& stok
             // Use ImageExpr for slice
             casacore::Array<float> slice_data;
             image->doGetSlice(slice_data, slicer);
+
+            if (image->isMasked()) {
+                // Get mask data
+                casacore::Array<bool> mask_data;
+                image->getMaskSlice(mask_data, slicer);
+
+                if (mask_data.shape() == slice_data.shape()) {
+                    // Reset the pixel value as NaN if its mask is false
+                    casacore::Array<float>::iterator slice_data_iter = slice_data.begin();
+                    casacore::Array<bool>::iterator mask_data_iter = mask_data.begin();
+                    for (; slice_data_iter != slice_data.end(); ++slice_data_iter, ++mask_data_iter) {
+                        if (!*mask_data_iter) {
+                            *slice_data_iter = NAN;
+                        }
+                    }
+                }
+            }
+
             data = slice_data; // copy from reference
+            return true;
+        } else if (image_type == "RebinImage") {
+            // For PV preview, image coordinate system and headers only.
+            // Data is rebinned and accessed in PvPreviewCube.
             return true;
         }
 
@@ -436,37 +454,43 @@ bool FileLoader::GetSubImage(
 bool FileLoader::GetBeams(std::vector<CARTA::Beam>& beams, std::string& error) {
     // Obtains beam table from ImageInfo
     bool success(false);
-    try {
-        auto image = GetImage();
-        if (!image) {
-            return success;
-        }
+    if (_is_gz && IsHistoryBeam() && !_history_beam.isNull()) {
+        beams.push_back(Message::Beam(
+            -1, -1, _history_beam.getMajor("arcsec"), _history_beam.getMinor("arcsec"), _history_beam.getPA(casacore::Unit("deg"))));
+    } else {
+        try {
+            auto image = GetImage();
+            if (!image) {
+                return success;
+            }
 
-        casacore::ImageInfo image_info = image->imageInfo();
-        if (!image_info.hasBeam()) {
-            error = "Image has no beam information.";
-            return success;
-        }
+            casacore::ImageInfo image_info = image->imageInfo();
+            if (!image_info.hasBeam()) {
+                error = "Image has no beam information.";
+                return success;
+            }
 
-        if (image_info.hasSingleBeam()) {
-            casacore::GaussianBeam gaussian_beam = image_info.restoringBeam();
-            beams.push_back(Message::Beam(
-                -1, -1, gaussian_beam.getMajor("arcsec"), gaussian_beam.getMinor("arcsec"), gaussian_beam.getPA(casacore::Unit("deg"))));
-        } else {
-            casacore::ImageBeamSet beam_set = image_info.getBeamSet();
-            casacore::GaussianBeam gaussian_beam;
-            for (unsigned int stokes = 0; stokes < beam_set.nstokes(); ++stokes) {
-                for (unsigned int chan = 0; chan < beam_set.nchan(); ++chan) {
-                    gaussian_beam = beam_set.getBeam(chan, stokes);
-                    beams.push_back(Message::Beam(chan, stokes, gaussian_beam.getMajor("arcsec"), gaussian_beam.getMinor("arcsec"),
-                        gaussian_beam.getPA(casacore::Unit("deg"))));
+            if (image_info.hasSingleBeam()) {
+                casacore::GaussianBeam gaussian_beam = image_info.restoringBeam();
+                beams.push_back(Message::Beam(-1, -1, gaussian_beam.getMajor("arcsec"), gaussian_beam.getMinor("arcsec"),
+                    gaussian_beam.getPA(casacore::Unit("deg"))));
+            } else {
+                casacore::ImageBeamSet beam_set = image_info.getBeamSet();
+                casacore::GaussianBeam gaussian_beam;
+                for (unsigned int stokes = 0; stokes < beam_set.nstokes(); ++stokes) {
+                    for (unsigned int chan = 0; chan < beam_set.nchan(); ++chan) {
+                        gaussian_beam = beam_set.getBeam(chan, stokes);
+                        beams.push_back(Message::Beam(chan, stokes, gaussian_beam.getMajor("arcsec"), gaussian_beam.getMinor("arcsec"),
+                            gaussian_beam.getPA(casacore::Unit("deg"))));
+                    }
                 }
             }
+            success = true;
+        } catch (casacore::AipsError& err) {
+            error = "Image beam error: " + err.getMesg();
         }
-        success = true;
-    } catch (casacore::AipsError& err) {
-        error = "Image beam error: " + err.getMesg();
     }
+
     return success;
 }
 
@@ -837,8 +861,9 @@ bool FileLoader::UseRegionSpectralData(const casacore::IPosition& region_shape, 
     return false;
 }
 
-bool FileLoader::GetRegionSpectralData(int region_id, int stokes, const casacore::ArrayLattice<casacore::Bool>& mask,
-    const casacore::IPosition& origin, std::mutex& image_mutex, std::map<CARTA::StatsType, std::vector<double>>& results, float& progress) {
+bool FileLoader::GetRegionSpectralData(int region_id, const AxisRange& z_range, int stokes,
+    const casacore::ArrayLattice<casacore::Bool>& mask, const casacore::IPosition& origin, std::mutex& image_mutex,
+    std::map<CARTA::StatsType, std::vector<double>>& results, float& progress) {
     // Must be implemented in subclasses
     return false;
 }
@@ -934,7 +959,14 @@ void FileLoader::SetStokesCdelt(int stokes_cdelt) {
 }
 
 bool FileLoader::SaveFile(const CARTA::FileType type, const std::string& output_filename, std::string& message) {
-    // Override in ExprLoader
-    message = "Cannot save image type from loader.";
+    // Override in ExprLoader to save LEL image
     return false;
+}
+
+void FileLoader::SetAipsBeamSupport(bool support) {
+    _support_aips_beam = support;
+}
+
+bool FileLoader::GetAipsBeamSupport() {
+    return _support_aips_beam;
 }

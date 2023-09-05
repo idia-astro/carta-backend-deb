@@ -19,11 +19,9 @@
 
 #include "ImageData/FileInfo.h"
 #include "Util/Casacore.h"
-#include "Util/Image.h"
+#include "Util/Stokes.h"
 
 namespace carta {
-
-class Frame;
 
 struct StokesSlicer {
     StokesSource stokes_source;
@@ -47,19 +45,23 @@ public:
     using ImageRef = std::shared_ptr<casacore::ImageInterface<float>>;
 
     // directory only for ExprLoader, is_gz only for FitsLoader
-    FileLoader(const std::string& filename, const std::string& directory = "", bool is_gz = false);
+    FileLoader(const std::string& filename, const std::string& directory = "", bool is_gz = false, bool is_generated = false);
     virtual ~FileLoader() = default;
 
     static FileLoader* GetLoader(const std::string& filename, const std::string& directory = "");
     // Access an image from the memory, not from the disk
-    static FileLoader* GetLoader(std::shared_ptr<casacore::ImageInterface<float>> image);
+    static FileLoader* GetLoader(std::shared_ptr<casacore::ImageInterface<float>> image, const std::string& filename);
 
     // check for mirlib (MIRIAD) error; returns true for other image types
     virtual bool CanOpenFile(std::string& error);
     // Open and close file
-    virtual void OpenFile(const std::string& hdu) = 0;
+    virtual void OpenFile(const std::string& hdu);
     // Check to see if the file has a particular HDU/group/table/etc
     virtual bool HasData(FileInfo::Data ds) const;
+
+    // Whether to set image beam from history headers
+    void SetAipsBeamSupport(bool support);
+    bool GetAipsBeamSupport();
 
     // If not in use, temp close image to prevent caching
     void CloseImageIfUpdated();
@@ -78,8 +80,8 @@ public:
     // Image shape and coordinate system axes
     casacore::IPosition GetShape();
     std::shared_ptr<casacore::CoordinateSystem> GetCoordinateSystem(const StokesSource& stokes_source = StokesSource());
-    bool FindCoordinateAxes(casacore::IPosition& shape, int& spectral_axis, int& z_axis, int& stokes_axis, std::string& message);
-    std::vector<int> GetRenderAxes(); // Determine axes used for image raster data
+    bool FindCoordinateAxes(casacore::IPosition& shape, std::vector<int>& spatial_axes, int& spectral_axis, int& stokes_axis,
+        std::vector<int>& render_axes, int& z_axis, std::string& message);
 
     // Slice image data (with mask applied)
     bool GetSlice(casacore::Array<float>& data, const StokesSlicer& stokes_slicer);
@@ -100,9 +102,9 @@ public:
         std::vector<float>& data, int stokes, int cursor_x, int count_x, int cursor_y, int count_y, std::mutex& image_mutex);
     // Check if one can apply swizzled data under such image format and region condition
     virtual bool UseRegionSpectralData(const casacore::IPosition& region_shape, std::mutex& image_mutex);
-    virtual bool GetRegionSpectralData(int region_id, int stokes, const casacore::ArrayLattice<casacore::Bool>& mask,
-        const casacore::IPosition& origin, std::mutex& image_mutex, std::map<CARTA::StatsType, std::vector<double>>& results,
-        float& progress);
+    virtual bool GetRegionSpectralData(int region_id, const AxisRange& z_range, int stokes,
+        const casacore::ArrayLattice<casacore::Bool>& mask, const casacore::IPosition& origin, std::mutex& image_mutex,
+        std::map<CARTA::StatsType, std::vector<double>>& results, float& progress);
     virtual bool GetDownsampledRasterData(
         std::vector<float>& data, int z, int stokes, CARTA::ImageBounds& bounds, int mip, std::mutex& image_mutex);
     virtual bool GetChunk(
@@ -129,12 +131,32 @@ public:
     // Handle images created from LEL expression
     virtual bool SaveFile(const CARTA::FileType type, const std::string& output_filename, std::string& message);
 
+    bool IsGenerated() {
+        return _is_generated;
+    };
+
+    bool IsHistoryBeam() {
+        return _is_history_beam;
+    }
+
+    void SetHistoryBeam(const casacore::GaussianBeam& history_beam) {
+        // For compressed fits.gz, where this is determined from headers only
+        _is_history_beam = true;
+        _history_beam = history_beam;
+    }
+
 protected:
     // Full name and characteristics of the image file
     std::string _filename, _directory;
     std::string _hdu;
     bool _is_gz;
+    bool _is_generated;
     unsigned int _modify_time;
+
+    // AIPS HISTORY beam support
+    bool _support_aips_beam;
+    bool _is_history_beam;
+    casacore::GaussianBeam _history_beam; // for compressed fits file info
 
     std::shared_ptr<casacore::ImageInterface<casacore::Float>> _image;
 
@@ -147,7 +169,6 @@ protected:
     size_t _num_dims, _image_plane_size;
     size_t _width, _height, _depth, _num_stokes;
     int _z_axis, _stokes_axis;
-    std::vector<int> _render_axes;
     std::shared_ptr<casacore::CoordinateSystem> _coord_sys;
     bool _has_pixel_mask;
     casacore::DataType _data_type;
@@ -179,6 +200,9 @@ protected:
 
     // Basic flux density calculation
     double CalculateBeamArea();
+
+    // Set the image object and its parameters
+    virtual void AllocateImage(const std::string& hdu) = 0;
 };
 
 } // namespace carta

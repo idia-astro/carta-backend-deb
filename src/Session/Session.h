@@ -4,7 +4,7 @@
    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
-//# Session.h: representation of a client connected to a server; processes requests from frontend
+// # Session.h: representation of a client connected to a server; processes requests from frontend
 
 #ifndef CARTA_BACKEND__SESSION_H_
 #define CARTA_BACKEND__SESSION_H_
@@ -79,7 +79,7 @@ public:
     bool OnOpenFile(int file_id, const string& name, std::shared_ptr<casacore::ImageInterface<casacore::Float>> image,
         CARTA::OpenFileAck* open_file_ack);
     void OnCloseFile(const CARTA::CloseFile& message);
-    void OnAddRequiredTiles(const CARTA::AddRequiredTiles& message, bool skip_data = false);
+    void OnAddRequiredTiles(const CARTA::AddRequiredTiles& message, int animation_id = 0, bool skip_data = false);
     void OnSetImageChannels(const CARTA::SetImageChannels& message);
     void OnSetCursor(const CARTA::SetCursor& message, uint32_t request_id);
     bool OnSetRegion(const CARTA::SetRegion& message, uint32_t request_id, bool silent = false);
@@ -106,7 +106,10 @@ public:
     void OnPvRequest(const CARTA::PvRequest& pv_request, uint32_t request_id);
     void OnStopPvCalc(const CARTA::StopPvCalc& stop_pv_calc);
     void OnFittingRequest(const CARTA::FittingRequest& fitting_request, uint32_t request_id);
+    void OnStopFitting(const CARTA::StopFitting& stop_fitting);
     void OnSetVectorOverlayParameters(const CARTA::SetVectorOverlayParameters& message);
+    void OnStopPvPreview(const CARTA::StopPvPreview& stop_pv_preview);
+    void OnClosePvPreview(const CARTA::ClosePvPreview& close_pv_preview);
 
     void AddToSetChannelQueue(CARTA::SetImageChannels message, uint32_t request_id) {
         std::pair<CARTA::SetImageChannels, uint32_t> rp;
@@ -137,7 +140,7 @@ public:
     }
     void BuildAnimationObject(CARTA::StartAnimation& msg, uint32_t request_id);
     bool ExecuteAnimationFrame();
-    void ExecuteAnimationFrameInner();
+    void ExecuteAnimationFrameInner(int animation_id);
     void StopAnimation(int file_id, const ::CARTA::AnimationFrame& frame);
     void HandleAnimationFlowControlEvt(CARTA::AnimationFlowControl& message);
     int CurrentFlowWindowSize() {
@@ -146,7 +149,7 @@ public:
     void CancelExistingAnimation();
     void CheckCancelAnimationOnFileClose(int file_id);
     void AddCursorSetting(CARTA::SetCursor message, uint32_t request_id) {
-        _file_settings.AddCursorSetting(message, request_id);
+        _cursor_settings.AddCursorSetting(message, request_id);
     }
     void ImageChannelLock(int fileId) {
         _image_channel_mutexes[fileId].lock();
@@ -198,6 +201,10 @@ public:
     }
     static void SetInitExitTimeout(int secs);
 
+    static void SetControllerDeploymentFlag(bool controller_deployment) {
+        _controller_deployment = controller_deployment;
+    }
+
     inline uint32_t GetId() {
         return _id;
     }
@@ -209,8 +216,10 @@ public:
     // RegionDataStreams
     void RegionDataStreams(int file_id, int region_id);
     bool SendSpectralProfileData(int file_id, int region_id, bool stokes_changed = false);
+    bool SendPvPreview(int file_id, int region_id, bool preview_region);
+    void StopPvPreviewUpdates(int preview_id);
 
-    CursorSettings _file_settings;
+    CursorSettings _cursor_settings;
     std::unordered_map<int, concurrent_queue<std::pair<CARTA::SetImageChannels, uint32_t>>> _set_channel_queues;
 
     void SendScriptingRequest(
@@ -237,10 +246,10 @@ public:
 protected:
     // File info for file list (extended info for each hdu_name)
     bool FillExtendedFileInfo(std::map<std::string, CARTA::FileInfoExtended>& hdu_info_map, CARTA::FileInfo& file_info,
-        const std::string& folder, const std::string& filename, const std::string& hdu, std::string& message);
+        const std::string& folder, const std::string& filename, const std::string& hdu, bool support_aips_beam, std::string& message);
     // File info for open file
     bool FillExtendedFileInfo(CARTA::FileInfoExtended& extended_info, CARTA::FileInfo& file_info, const std::string& folder,
-        const std::string& filename, std::string& hdu_name, std::string& message, std::string& fullname);
+        const std::string& filename, std::string& hdu_name, bool support_aips_beam, std::string& message, std::string& fullname);
     bool FillFileInfo(
         CARTA::FileInfo& file_info, const std::string& folder, const std::string& filename, std::string& fullname, std::string& message);
 
@@ -259,8 +268,9 @@ protected:
     bool SendSpatialProfileData(int file_id, int region_id);
     void SendSpatialProfileDataByFileId(int file_id);
     void SendSpatialProfileDataByRegionId(int region_id);
-    bool SendRegionHistogramData(int file_id, int region_id);
+    bool SendRegionHistogramData(int file_id, int region_id, bool channel_changed = false);
     bool SendRegionStatsData(int file_id, int region_id);
+
     void UpdateImageData(int file_id, bool send_image_histogram, bool z_changed, bool stokes_changed);
     void UpdateRegionData(int file_id, int region_id, bool z_changed, bool stokes_changed);
     bool SendVectorFieldData(int file_id);
@@ -317,17 +327,19 @@ protected:
     // context that enables all tasks associated with a session to be cancelled.
     SessionContext _base_context;
 
-    // TBB context to cancel histogram calculations.
+    // context to cancel histogram calculations.
     SessionContext _histogram_context;
 
     SessionContext _animation_context;
 
     std::atomic<int> _ref_count;
+    int _sync_id;
     int _animation_id;
     bool _connected;
     static volatile int _num_sessions;
     static int _exit_after_num_seconds;
     static bool _exit_when_all_sessions_closed;
+    static bool _controller_deployment;
     static std::thread* _animation_thread;
 
     // Callbacks for scripting responses from the frontend

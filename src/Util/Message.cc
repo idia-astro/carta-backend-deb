@@ -5,6 +5,7 @@
 */
 
 #include "Message.h"
+#include "Cache/RequirementsCache.h"
 #include "DataStream/Compression.h"
 
 #include <chrono>
@@ -23,8 +24,8 @@ CARTA::CloseFile Message::CloseFile(int32_t file_id) {
     return close_file;
 }
 
-CARTA::OpenFile Message::OpenFile(
-    std::string directory, std::string file, std::string hdu, int32_t file_id, CARTA::RenderMode render_mode, bool lel_expr) {
+CARTA::OpenFile Message::OpenFile(std::string directory, std::string file, bool lel_expr, std::string hdu, int32_t file_id,
+    bool support_aips_beam, CARTA::RenderMode render_mode) {
     CARTA::OpenFile open_file;
     open_file.set_directory(directory);
     open_file.set_file(file);
@@ -32,6 +33,7 @@ CARTA::OpenFile Message::OpenFile(
     open_file.set_file_id(file_id);
     open_file.set_render_mode(render_mode);
     open_file.set_lel_expr(lel_expr);
+    open_file.set_support_aips_beam(support_aips_beam);
     return open_file;
 }
 
@@ -266,7 +268,7 @@ CARTA::FloatBounds Message::FloatBounds(float min, float max) {
 }
 
 CARTA::MomentRequest Message::MomentsRequest(int32_t file_id, int32_t region_id, CARTA::MomentAxis moments_axis,
-    CARTA::MomentMask moment_mask, CARTA::IntBounds spectral_range, CARTA::FloatBounds pixel_range) {
+    CARTA::MomentMask moment_mask, CARTA::IntBounds spectral_range, CARTA::FloatBounds pixel_range, bool keep) {
     CARTA::MomentRequest moment_request;
     moment_request.set_file_id(file_id);
     moment_request.set_region_id(region_id);
@@ -291,6 +293,7 @@ CARTA::MomentRequest Message::MomentsRequest(int32_t file_id, int32_t region_id,
     moment_request.add_moments(CARTA::Moment::COORD_OF_THE_MAX_OF_THE_SPECTRUM);
     moment_request.add_moments(CARTA::Moment::MIN_OF_THE_SPECTRUM);
     moment_request.add_moments(CARTA::Moment::COORD_OF_THE_MIN_OF_THE_SPECTRUM);
+    moment_request.set_keep(keep);
     return moment_request;
 }
 
@@ -380,6 +383,15 @@ CARTA::SetVectorOverlayParameters Message::SetVectorOverlayParameters(uint32_t f
     message.set_stokes_angle(stokes_angle);
     message.set_compression_type(compression_type);
     message.set_compression_quality(compression_quality);
+    return message;
+}
+
+CARTA::ImageBounds Message::ImageBounds(int32_t x_min, int32_t x_max, int32_t y_min, int32_t y_max) {
+    CARTA::ImageBounds message;
+    message.set_x_min(x_min);
+    message.set_x_max(x_max);
+    message.set_y_min(y_min);
+    message.set_y_max(y_max);
     return message;
 }
 
@@ -501,12 +513,15 @@ CARTA::SpatialProfileData Message::SpatialProfileData(int32_t x, int32_t y, int3
     return message;
 }
 
-CARTA::RasterTileSync Message::RasterTileSync(int32_t file_id, int32_t channel, int32_t stokes, int32_t animation_id, bool end_sync) {
+CARTA::RasterTileSync Message::RasterTileSync(
+    int32_t file_id, int32_t channel, int32_t stokes, int32_t sync_id, int32_t animation_id, int32_t tile_count, bool end_sync) {
     CARTA::RasterTileSync message;
     message.set_file_id(file_id);
     message.set_channel(channel);
     message.set_stokes(stokes);
+    message.set_sync_id(sync_id);
     message.set_animation_id(animation_id);
+    message.set_tile_count(tile_count);
     message.set_end_sync(end_sync);
     return message;
 }
@@ -536,21 +551,53 @@ CARTA::MomentProgress Message::MomentProgress(int32_t file_id, float progress) {
     return message;
 }
 
-CARTA::PvProgress Message::PvProgress(int32_t file_id, float progress) {
+CARTA::PvRequest Message::PvRequest(int32_t file_id, int32_t region_id, int32_t width, int z_min, int32_t z_max, bool reverse, bool keep) {
+    CARTA::PvRequest message;
+    message.set_file_id(file_id);
+    message.set_region_id(region_id);
+    message.set_width(width);
+
+    if (z_min >= 0 && z_max >= 0) {
+        auto spectral_range = message.mutable_spectral_range();
+        spectral_range->set_min(z_min);
+        spectral_range->set_max(z_max);
+    }
+
+    message.set_reverse(reverse);
+    message.set_keep(keep);
+    return message;
+}
+
+CARTA::PvProgress Message::PvProgress(int32_t file_id, float progress, int32_t preview_id) {
     CARTA::PvProgress message;
+    message.set_file_id(file_id);
+    message.set_preview_id(preview_id);
+    message.set_progress(progress);
+    return message;
+}
+
+CARTA::FittingProgress Message::FittingProgress(int32_t file_id, float progress) {
+    CARTA::FittingProgress message;
     message.set_file_id(file_id);
     message.set_progress(progress);
     return message;
 }
 
 CARTA::RegionHistogramData Message::RegionHistogramData(
-    int32_t file_id, int32_t region_id, int32_t channel, int32_t stokes, float progress) {
+    int32_t file_id, int32_t region_id, int32_t channel, int32_t stokes, float progress, const carta::HistogramConfig& hist_config) {
     CARTA::RegionHistogramData message;
     message.set_file_id(file_id);
     message.set_region_id(region_id);
     message.set_channel(channel);
     message.set_stokes(stokes);
     message.set_progress(progress);
+    auto* config = message.mutable_config();
+    config->set_fixed_num_bins(hist_config.fixed_num_bins);
+    config->set_num_bins(hist_config.num_bins);
+    config->set_fixed_bounds(hist_config.fixed_bounds);
+    auto* bounds = config->mutable_bounds();
+    bounds->set_min(hist_config.bounds.min);
+    bounds->set_max(hist_config.bounds.max);
     return message;
 }
 
@@ -594,9 +641,10 @@ CARTA::FileInfo Message::FileInfo(const std::string& name, CARTA::FileType type,
     return message;
 }
 
-CARTA::RasterTileData Message::RasterTileData(int32_t file_id, int32_t animation_id) {
+CARTA::RasterTileData Message::RasterTileData(int32_t file_id, int32_t sync_id, int32_t animation_id) {
     CARTA::RasterTileData message;
     message.set_file_id(file_id);
+    message.set_sync_id(sync_id);
     message.set_animation_id(animation_id);
     return message;
 }

@@ -12,6 +12,8 @@
 
 // Escape URL strings
 std::string SafeStringEscape(const std::string& input);
+// Unescape URL strings
+std::string SafeStringUnescape(const std::string& input);
 
 // split input string into a vector of strings by delimiter
 void SplitString(std::string& input, char delim, std::vector<std::string>& parts);
@@ -21,5 +23,8 @@ bool HasSuffix(const std::string& haystack, const std::string& needle, bool case
 
 // determine whether strings are equal in constant time, rather than based on early-exit
 bool ConstantTimeStringCompare(const std::string& a, const std::string& b);
+
+// Convert string to integer, return whether success
+bool StringToInt(const std::string& input, int& i);
 
 #endif // CARTA_BACKEND__UTIL_STRING_H_

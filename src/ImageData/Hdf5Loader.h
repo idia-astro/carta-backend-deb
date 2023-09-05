@@ -25,17 +25,15 @@ class Hdf5Loader : public FileLoader {
 public:
     Hdf5Loader(const std::string& filename);
 
-    void OpenFile(const std::string& hdu) override;
-
     bool HasData(FileInfo::Data ds) const override;
 
     bool GetCursorSpectralData(
         std::vector<float>& data, int stokes, int cursor_x, int count_x, int cursor_y, int count_y, std::mutex& image_mutex) override;
 
     bool UseRegionSpectralData(const casacore::IPosition& region_shape, std::mutex& image_mutex) override;
-    bool GetRegionSpectralData(int region_id, int stokes, const casacore::ArrayLattice<casacore::Bool>& mask,
-        const casacore::IPosition& origin, std::mutex& image_mutex, std::map<CARTA::StatsType, std::vector<double>>& results,
-        float& progress) override;
+    bool GetRegionSpectralData(int region_id, const AxisRange& spectral_range, int stokes,
+        const casacore::ArrayLattice<casacore::Bool>& mask, const casacore::IPosition& origin, std::mutex& image_mutex,
+        std::map<CARTA::StatsType, std::vector<double>>& results, float& progress) override;
     bool GetDownsampledRasterData(
         std::vector<float>& data, int z, int stokes, CARTA::ImageBounds& bounds, int mip, std::mutex& image_mutex) override;
     bool GetChunk(std::vector<float>& data, int& data_width, int& data_height, int min_x, int min_y, int z, int stokes,
@@ -52,6 +50,8 @@ private:
     std::map<FileInfo::RegionStatsId, FileInfo::RegionSpectralStats> _region_stats;
 
     H5D_layout_t _layout;
+
+    void AllocateImage(const std::string& hdu) override;
 
     std::string DataSetToString(FileInfo::Data ds) const;
     bool HasData(std::string ds_name) const;

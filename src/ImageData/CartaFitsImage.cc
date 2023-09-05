@@ -33,7 +33,8 @@ CartaFitsImage::CartaFitsImage(const std::string& filename, unsigned int hdu)
       _hdu(hdu),
       _fptr(nullptr),
       _is_compressed(false),
-      _datatype(casacore::TpOther),
+      _bitpix(-32),       // assume float
+      _equiv_bitpix(-32), // assume float
       _has_blanks(false),
       _pixel_mask(nullptr),
       _is_copy(false) {
@@ -52,7 +53,8 @@ CartaFitsImage::CartaFitsImage(const CartaFitsImage& other)
       _fptr(other._fptr),
       _shape(other._shape),
       _is_compressed(other._is_compressed),
-      _datatype(other._datatype),
+      _bitpix(other._bitpix),
+      _equiv_bitpix(other._equiv_bitpix),
       _has_blanks(other._has_blanks),
       _pixel_mask(nullptr),
       _tiled_shape(other._tiled_shape),
@@ -93,58 +95,49 @@ casacore::Bool CartaFitsImage::ok() const {
 }
 
 casacore::DataType CartaFitsImage::dataType() const {
-    return casacore::DataType::TpFloat;
+    if (bitpix_types.find(_equiv_bitpix) != bitpix_types.end()) {
+        return bitpix_types.at(_equiv_bitpix);
+    }
+
+    return casacore::DataType::TpFloat; // casacore FITSImage default
 }
 
 casacore::DataType CartaFitsImage::internalDataType() const {
-    switch (_datatype) {
-        case 8:
-            return casacore::DataType::TpUChar;
-        case 16:
-            return casacore::DataType::TpShort;
-        case 32:
-            return casacore::DataType::TpInt;
-        case 64:
-            return casacore::DataType::TpInt64;
-        case -32:
-            return casacore::DataType::TpFloat;
-        case -64:
-            return casacore::DataType::TpDouble;
+    if (bitpix_types.find(_bitpix) != bitpix_types.end()) {
+        return bitpix_types.at(_bitpix);
     }
 
-    return dataType();
+    return casacore::DataType::TpFloat; // casacore FITSImage default
 }
 
 casacore::Bool CartaFitsImage::doGetSlice(casacore::Array<float>& buffer, const casacore::Slicer& section) {
     // Read section of data using cfitsio implicit data type conversion.
     // cfitsio scales the data by BSCALE and BZERO
-    fitsfile* fptr = OpenFile();
-
     // Read data subset from image
     bool ok(false);
-    switch (_datatype) {
+    switch (_equiv_bitpix) {
         case 8: {
-            ok = GetDataSubset<unsigned char>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<unsigned char>(_equiv_bitpix, section, buffer);
             break;
         }
         case 16: {
-            ok = GetDataSubset<short>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<short>(_equiv_bitpix, section, buffer);
             break;
         }
         case 32: {
-            ok = GetDataSubset<int>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<int>(_equiv_bitpix, section, buffer);
             break;
         }
         case 64: {
-            ok = GetDataSubset<LONGLONG>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<LONGLONG>(_equiv_bitpix, section, buffer);
             break;
         }
         case -32: {
-            ok = GetDataSubset<float>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<float>(_equiv_bitpix, section, buffer);
             break;
         }
         case -64: {
-            ok = GetDataSubset<double>(fptr, _datatype, section, buffer);
+            ok = GetDataSubset<double>(_equiv_bitpix, section, buffer);
             break;
         }
     }
@@ -218,7 +211,7 @@ casacore::Bool CartaFitsImage::doGetMaskSlice(casacore::Array<bool>& buffer, con
     }
 
     if (!_pixel_mask) {
-        if (_datatype > 0) {
+        if (_bitpix > 0) {
             SetPixelMask();
         } else {
             return doGetNanMaskSlice(buffer, section);
@@ -226,6 +219,7 @@ casacore::Bool CartaFitsImage::doGetMaskSlice(casacore::Array<bool>& buffer, con
     }
 
     if (_pixel_mask) {
+        _pixel_mask->getSlice(buffer, section);
         return _pixel_mask->getSlice(buffer, section);
     }
 
@@ -235,11 +229,12 @@ casacore::Bool CartaFitsImage::doGetMaskSlice(casacore::Array<bool>& buffer, con
 // private
 
 fitsfile* CartaFitsImage::OpenFile() {
-    // Open file and return file pointer
+    // Open file and return file pointer, or return existing file pointer.
+    // Caller should protect with mutex before calling this then proceeding with cfitsio call using returned fptr.
     if (!_fptr) {
         fitsfile* fptr;
-        int status(0);
-        fits_open_file(&fptr, _filename.c_str(), 0, &status);
+        int iomode(READONLY), status(0);
+        fits_open_file(&fptr, _filename.c_str(), iomode, &status);
 
         if (status) {
             throw(casacore::AipsError("Error opening FITS file."));
@@ -261,6 +256,7 @@ fitsfile* CartaFitsImage::OpenFile() {
 void CartaFitsImage::CloseFile() {
     if (_fptr) {
         int status = 0;
+        std::unique_lock<std::mutex> ulock(_fptr_mutex);
         fits_close_file(_fptr, &status);
         _fptr = nullptr;
     }
@@ -354,6 +350,7 @@ void CartaFitsImage::GetFitsHeaderString(int& nheaders, std::string& hdrstr) {
     // Read header values into single string, and store some image parameters.
     // Returns string and number of keys contained in string.
     // Throws exception if any headers missing.
+    std::unique_lock<std::mutex> ulock(_fptr_mutex);
     fitsfile* fptr = OpenFile();
     int status(0);
 
@@ -379,20 +376,30 @@ void CartaFitsImage::GetFitsHeaderString(int& nheaders, std::string& hdrstr) {
         CloseFileIfError(1, "Image must be at least 2D.");
     }
 
-    // Set shape and data type
+    // Set data type and shape
+    _bitpix = bitpix;
     _shape.resize(naxis);
     for (int i = 0; i < naxis; ++i) {
         _shape(i) = naxes[i];
     }
-    _datatype = bitpix;
+
+    // Equivalent data type for scaled data
+    int equiv_bitpix;
+    status = 0;
+    fits_get_img_equivtype(fptr, &equiv_bitpix, &status);
+    if (status) {
+        _equiv_bitpix = _bitpix;
+    } else {
+        _equiv_bitpix = equiv_bitpix;
+    }
 
     // Set blanks used for integer datatypes (int value for NAN), for pixel mask
     if (bitpix > 0) {
         std::string key("BLANK");
-        int blank_value;
-        char* comment(nullptr);
+        int blank;
+        char* comment(nullptr); // ignore
         status = 0;
-        fits_read_key(fptr, TLONG, key.c_str(), &blank_value, comment, &status);
+        fits_read_key(fptr, TINT, key.c_str(), &blank, comment, &status);
         _has_blanks = !status;
     } else {
         // For float (-32) and double (-64) mask is represented by NaN
@@ -423,6 +430,7 @@ void CartaFitsImage::GetFitsHeaderString(int& nheaders, std::string& hdrstr) {
     } else {
         fits_hdr2str(fptr, no_comments, nullptr, 0, header, &nheaders, &status);
     }
+    ulock.unlock();
 
     if (status) {
         // Free memory allocated by cfitsio, close file, throw exception
@@ -437,7 +445,7 @@ void CartaFitsImage::GetFitsHeaderString(int& nheaders, std::string& hdrstr) {
     int free_status(0);
     fits_free_memory(*header, &free_status);
 
-    // Done with file
+    // Done with file setup
     CloseFile();
 }
 
@@ -452,6 +460,14 @@ void CartaFitsImage::SetFitsHeaderStrings(int nheaders, const std::string& heade
         _all_header_strings(i) = hstring;
 
         if (!hstring.startsWith("HISTORY")) {
+            if (hstring.startsWith("BUNIT")) {
+                // Handle the expression of arcsec^2 for JCMT-SCUBA2 header
+                std::string arcsec2_expr(" s**0.5");
+                size_t start_pos = hstring.find(arcsec2_expr);
+                if (start_pos != std::string::npos) {
+                    hstring.replace(start_pos, arcsec2_expr.length(), "/arcsec^2");
+                }
+            }
             no_history_strings.push_back(hstring);
         }
 
@@ -856,8 +872,17 @@ bool CartaFitsImage::AddSpectralCoordinate(casacore::CoordinateSystem& coord_sys
 
         // CTYPE, native type for SpectralCoordinate
         casacore::String ctype1 = wcs_spectral.ctype[0];
-
-        if (ctype1.startsWith("WAVE") || ctype1.startsWith("AWAV") || ctype1.startsWith("VOPT") || ctype1.startsWith("FELO")) {
+        if (ctype1.startsWith("FREQ")) {
+            try {
+                casacore::MFrequency::Types frequency_type = GetFrequencyType(wcs_spectral);
+                casacore::SpectralCoordinate spectral_coord(frequency_type, wcs);
+                spectral_coord.setNativeType(casacore::SpectralCoordinate::FREQ);
+                coord_sys.addCoordinate(spectral_coord);
+            } catch (const casacore::AipsError& err) {
+                spdlog::debug("Failed to set FREQ spectral coordinate from wcs.");
+                ok = false;
+            }
+        } else if (ctype1.startsWith("WAVE") || ctype1.startsWith("AWAV") || ctype1.startsWith("VOPT") || ctype1.startsWith("FELO")) {
             // Set up wcsprm struct with wcsset
             casacore::Coordinate::set_wcs(wcs_spectral);
 
@@ -889,7 +914,7 @@ bool CartaFitsImage::AddSpectralCoordinate(casacore::CoordinateSystem& coord_sys
                 // Calculate wavelengths
                 casacore::Vector<casacore::Double> wavelengths(num_chan);
                 for (size_t i = 0; i < num_chan; ++i) {
-                    wavelengths(i) = crval + (cdelt * pc * (double(i + 1) - crpix)); // +1 because FITS works 1-based
+                    wavelengths(i) = crval + (cdelt * pc * (double(i + 1) - crpix)); // +1 because FITS is 1-based
                 }
 
                 bool in_air(false);
@@ -961,8 +986,7 @@ bool CartaFitsImage::AddSpectralCoordinate(casacore::CoordinateSystem& coord_sys
                 }
             }
         } else {
-            casacore::SpectralCoordinate::SpecType native_type(casacore::SpectralCoordinate::FREQ);
-
+            casacore::SpectralCoordinate::SpecType native_type;
             if (ctype1.startsWith("VELO")) {
                 native_type = casacore::SpectralCoordinate::VRAD;
             } else if (ctype1.startsWith("VRAD")) {
@@ -1296,8 +1320,7 @@ void CartaFitsImage::ReadBeamsTable(casacore::ImageInfo& image_info) {
     }
 
     // Check nchan and npol
-    char* comment(nullptr);
-
+    char* comment(nullptr); // ignore
     std::string key("NCHAN");
     status = 0;
     fits_read_key(fptr, TINT, key.c_str(), &nchan, comment, &status);
@@ -1320,7 +1343,7 @@ void CartaFitsImage::ReadBeamsTable(casacore::ImageInfo& image_info) {
 
     std::unordered_map<string, string> beam_units;
     for (int i = 0; i < tfields; ++i) {
-        char name[10], unit[10];
+        char name[FLEN_VALUE], unit[FLEN_VALUE]; // cfitsio constant: max value length
         std::string index_str = std::to_string(i + 1);
 
         key = "TTYPE" + index_str;
@@ -1335,48 +1358,51 @@ void CartaFitsImage::ReadBeamsTable(casacore::ImageInfo& image_info) {
     }
 
     // Read columns into vectors
-    int casesen(CASEINSEN), colnum(0), fdatatype(TFLOAT), idatatype(TINT), anynul(0);
+    int casesen(CASEINSEN), colnum(0), anynul(0), datatype(0);
+    long repeat, width;
     LONGLONG firstrow(1), firstelem(1);
     float* fnulval(nullptr);
     int* inulval(nullptr);
 
-    std::vector<float> bmaj(nrow), bmin(nrow), bpa(nrow);
-    std::vector<int> chan(nrow), pol(nrow);
+    std::unordered_map<std::string, std::vector<casacore::Quantity>> beam_qualities = {{"BMAJ", std::vector<casacore::Quantity>(nrow)},
+        {"BMIN", std::vector<casacore::Quantity>(nrow)}, {"BPA", std::vector<casacore::Quantity>(nrow)}};
 
-    char bmaj_name[] = "BMAJ";
-    status = 0;
-    fits_get_colnum(fptr, casesen, bmaj_name, &colnum, &status);
-    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bmaj.data(), &anynul, &status);
+    for (auto& beam_quality : beam_qualities) {
+        auto name = beam_quality.first;
+        status = 0;
+        fits_get_colnum(fptr, casesen, name.data(), &colnum, &status);
+        fits_get_coltype(fptr, colnum, &datatype, &repeat, &width, &status);
 
-    char bmin_name[] = "BMIN";
-    status = 0;
-    fits_get_colnum(fptr, casesen, bmin_name, &colnum, &status);
-    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bmin.data(), &anynul, &status);
+        if (datatype == TDOUBLE) {
+            std::vector<double> values(nrow);
+            fits_read_col(fptr, TDOUBLE, colnum, firstrow, firstelem, nrow, fnulval, values.data(), &anynul, &status);
+            for (int i = 0; i < nrow; ++i) {
+                beam_quality.second[i] = casacore::Quantity(values[i], beam_units[name]);
+            }
+        } else {
+            std::vector<float> values(nrow);
+            fits_read_col(fptr, TFLOAT, colnum, firstrow, firstelem, nrow, fnulval, values.data(), &anynul, &status);
+            for (int i = 0; i < nrow; ++i) {
+                beam_quality.second[i] = casacore::Quantity(values[i], beam_units[name]);
+            }
+        }
+    }
 
-    char bpa_name[] = "BPA";
-    status = 0;
-    fits_get_colnum(fptr, casesen, bpa_name, &colnum, &status);
-    fits_read_col(fptr, fdatatype, colnum, firstrow, firstelem, nrow, fnulval, bpa.data(), &anynul, &status);
+    std::unordered_map<std::string, std::vector<int>> beam_indices = {{"CHAN", std::vector<int>(nrow)}, {"POL", std::vector<int>(nrow)}};
 
-    char chan_name[] = "CHAN";
-    status = 0;
-    fits_get_colnum(fptr, casesen, chan_name, &colnum, &status);
-    fits_read_col(fptr, idatatype, colnum, firstrow, firstelem, nrow, inulval, chan.data(), &anynul, &status);
-
-    char pol_name[] = "POL";
-    status = 0;
-    fits_get_colnum(fptr, casesen, pol_name, &colnum, &status);
-    fits_read_col(fptr, idatatype, colnum, firstrow, firstelem, nrow, inulval, pol.data(), &anynul, &status);
+    for (auto& beam_index : beam_indices) {
+        auto name = beam_index.first;
+        status = 0;
+        fits_get_colnum(fptr, casesen, name.data(), &colnum, &status);
+        fits_read_col(fptr, TINT, colnum, firstrow, firstelem, nrow, inulval, beam_index.second.data(), &anynul, &status);
+    }
 
     fits_close_file(fptr, &status);
 
     image_info.setAllBeams(nchan, npol, casacore::GaussianBeam::NULL_BEAM);
     for (int i = 0; i < nrow; ++i) {
-        casacore::Quantity bmajq(bmaj[i], beam_units["BMAJ"]);
-        casacore::Quantity bminq(bmin[i], beam_units["BMIN"]);
-        casacore::Quantity bpaq(bpa[i], beam_units["BPA"]);
-        casacore::GaussianBeam beam(bmajq, bminq, bpaq);
-        image_info.setBeam(chan[i], pol[i], beam);
+        casacore::GaussianBeam beam(beam_qualities["BMAJ"][i], beam_qualities["BMIN"][i], beam_qualities["BPA"][i]);
+        image_info.setBeam(beam_indices["CHAN"][i], beam_indices["POL"][i], beam);
     }
 }
 
@@ -1397,27 +1423,24 @@ void CartaFitsImage::AddObsInfo(casacore::CoordinateSystem& coord_sys, casacore:
 }
 
 void CartaFitsImage::SetPixelMask() {
-    // Set pixel mask for entire image
-    fitsfile* fptr = OpenFile();
-
     // Read blanked mask from image
     bool ok(false);
     casacore::ArrayLattice<bool> mask_lattice;
-    switch (_datatype) {
+    switch (_bitpix) {
         case 8: {
-            ok = GetPixelMask<unsigned char>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetPixelMask<unsigned char>(_bitpix, _shape, mask_lattice);
             break;
         }
         case 16: {
-            ok = GetPixelMask<short>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetPixelMask<short>(_bitpix, _shape, mask_lattice);
             break;
         }
         case 32: {
-            ok = GetPixelMask<int>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetPixelMask<int>(_bitpix, _shape, mask_lattice);
             break;
         }
         case 64: {
-            ok = GetPixelMask<LONGLONG>(fptr, _datatype, _shape, mask_lattice);
+            ok = GetPixelMask<LONGLONG>(_bitpix, _shape, mask_lattice);
             break;
         }
         case -32: {
@@ -1440,8 +1463,6 @@ void CartaFitsImage::SetPixelMask() {
     } else {
         _pixel_mask = new casacore::ArrayLattice<bool>(mask_lattice);
     }
-
-    CloseFile();
 }
 
 bool CartaFitsImage::doGetNanMaskSlice(casacore::Array<bool>& buffer, const casacore::Slicer& section) {

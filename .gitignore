@@ -17,4 +17,7 @@ cmake-build-*/
 build/
 coverage/
 
+# Doxygen
+docs/html
+
 debian/files
