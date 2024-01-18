@@ -1,3 +1,17 @@
+carta-backend (4.1.0-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 4.1.0.
+  * Fixed
+    - Include casacore log messages in carta log (#1169).
+    - Fixed the problem of opening old IRAM fits images (#1312).
+    - Fixed scripting interface and symlink directory issues (#1283, #1284, #1314).
+    - Fixed incorrect std calculation when fitting images with nan values (#1318).
+    - Fixed the hanging problem when deleting a region during the spectral profile process (#1328).
+  * Changed
+    - Updated for compatibility with latest carta-casacore using CASA 6.6.0.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 18 Jan 2024 15:20:56 +0200
+
 carta-backend (4.0.0-1~jammy1) jammy; urgency=medium
 
   * Bumped version to 4.0.0.
