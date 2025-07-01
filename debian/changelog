@@ -1,4 +1,4 @@
-carta-backend (5.0.0-1~jammy1) jammy; urgency=medium
+carta-backend (5.0.0-1~noble1) noble; urgency=medium
 
   * Bumped version to 5.0.0.
   * 5.0.0
