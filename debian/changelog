@@ -1,0 +1,270 @@
+carta-backend (4.1.0-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 4.1.0.
+  * Fixed
+    - Include casacore log messages in carta log (#1169).
+    - Fixed the problem of opening old IRAM fits images (#1312).
+    - Fixed scripting interface and symlink directory issues (#1283, #1284, #1314).
+    - Fixed incorrect std calculation when fitting images with nan values (#1318).
+    - Fixed the hanging problem when deleting a region during the spectral profile process (#1328).
+  * Changed
+    - Updated for compatibility with latest carta-casacore using CASA 6.6.0.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 18 Jan 2024 15:20:56 +0200
+
+carta-backend (4.0.0-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 4.0.0.
+  * 4.0.0
+  * Changed
+    - Support animation playback with matched images in multi-panel view (#1860).
+  * Fixed
+    - Prevent the installation of pugixml library files (#1261).
+    - Fixed spatial profile for polyline in widefield image (#1258).
+    - Fixed regression failure of HDF5 PV image due to profile caching in the HDF5 loader (#1259).
+    - Removed duplicate image histogram data sent to the frontend (#1266).
+    - Fixed FITS header and data errors (#1233, #1265).
+    - Fixed the problem of resuming LEL images (#1226).
+    - Fixed the case-sensitive of reading BUNIT from a file header (#1187).
+    - Fixed the crash when reading beam table with 64-bit floats (#1166).
+    - Fixed region spectral profile from FITS gz image (#1271).
+    - Fixed the lack of mask for LEL images (#1291).
+    - Fixed file path to save generated image (#1252).
+    - Fixed missing tiles issue (#1282).
+    - Fixed the crash of loading JCMT-SCUBA2 FITS images (#1301).
+    - Fixed updating the PV preview for a matched image (#1304).
+  * 4.0.0-beta.1
+  * Added
+    - Added a check of averaging width when calculating line/polyline spatial profiles or PV images (#1174).
+    - Added support for fitting images with regions, fixed parameters, a background offset, and different solvers; added support for generating model and residual images, estimating progress, and cancelling tasks (#150).
+    - Added PV generator features for spectral range, reversed axes, and keeping previous image (#1175, #1176, #1177).
+    - Added a debug config flag for disabling runtime config (#1213).
+    - Added support to keep previously generated moment images (#1202).
+    - Added pugixml as a third-party library with the option PUGIXML_COMPACT enabled (#1217).
+    - Added automatically generated documentation with Doxygen (#1215).
+    - Added support for loading swapped-axes image cubes (#1178).
+    - Added support for annotation regions (#340).
+    - Added support for customizing histogram calculations (#829).
+    - Added support for PV preview (#795).
+  * Changed
+    - Removed CASA CRTF parser for performance and annotation region support (#1219).
+  * Fixed
+    - Fixed issues with AIPS velocity axis by restoring previous casacore headers (#1771).
+    - Fixed error in regions when resuming session. (#1210).
+    - Fixed crash when exporting matched region (#1205, #1208).
+    - Fixed region import with space in region name (#1188).
+    - Fixed cfitsio 4.2.0 fits_read_key abort (#1231).
+    - Fixed failure loading CASA image due to FITS headers error (#1239).
+    - Fixed incorrect PV image orientation if the cube has projection distortion (#1244).
+    - Fixed crash following use of an incorrect session ID (#1248).
+    - Fixed header angle formatting error with non-angle unit (#1218).
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Mon, 04 Sep 2023 14:40:24 +0200
+
+carta-backend (3.0.1-1~jammy1) jammy; urgency=medium
+
+  * Backported security fix.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Mon, 06 Mar 2023 15:29:31 +0200
+
+carta-backend (3.0.0-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 3.0.0.
+  * 3.0.0-rc.0:
+  * Added
+    - Added support for image fitting with field of view (#150).
+    - List frequency and velocity in file info for single channel image (#1152).
+  * Changed
+    - Enhanced image fitting performance by switching the solver from qr to cholesky (#1114).
+    - Made HTTP server return a different error code for disabled features (#1115).
+    - Removed Splatalogue interaction from backend codebase and removed dependency on libcurl (#994).
+    - Use wrappers to construct protocol buffer messages where possible (#960).
+    - Change the time zone in log messages from local to UTC (#1151).
+    - Refactor the timer for performance measurements (#1180).
+  * Fixed
+    - Stopped calculating per-cube histogram unnecessarily when switching to a new Stokes value (#1013).
+    - Ensured that HTTP server returns error codes correctly (#1011).
+    - Fixed crash problems for compressed FITS files (#999 and #1014).
+    - Fixed the incorrect STD for images with large pixel values (#1069).
+    - Fixed incorrect spectral profiles for computed stokes (#1122). 
+    - Fixed the problem of recognizing FITS gzip files from ALMA Science Archive (#1130).
+    - Fixed slow loading of FITS image with large number of HISTORY headers (#1063).
+    - Fixed the DS9 import bug with region properties (#1129).
+    - Fixed incorrect pixel number when fitting image with nan pixels (#1128).
+    - Fixed errors on loading images via LEL (#1144).
+    - Fixed the DS9 import bug with no header line (#1064).
+    - Fixed incorrect matched region pixel count (#1108).
+    - Fixed the getstat error on generated image (#1148).
+    - Fixed file info hang when a CASA image is locked (#578).
+    - Fixed region export failure when no write permission (#1133).
+    - Fixed HTTP response codes when returning response to PUT requests (#1157).
+    - Fixed the problem of one-pixel position offset for DS9 regions projections (#1138).
+    - Fixed crash problems during moments ICD tests (#1070).
+    - Fixed response when importing region file fails by catching exception (#1160).
+    - Fixed the crash when trying to load an unsupported image file (#1161).
+    - Fixed including directories in region file list (#1159).
+    - Fixed issue where NaN data was read incorrectly from a compressed FITS .fz image (#1143).
+  * 3.0.0-beta.3:
+  * Changed
+    - Removed gRPC service and moved scripting interface to HTTP server (#1022).
+    - Added more fine-grained commandline flags to enable and disable functions of the HTTP server.
+    - Optimised performance of image data cache (#967).
+    - Added exit on timeout flag to Linux desktop launcher (#989).
+    - Separated stdout and stderr logging (#869).
+  * Added
+    - Added moment map generation information to the header of generated images (#1024).
+    - Added support for creating CASA LEL images dynamically (#655).
+    - Added spatial and spectral range information to the file browser (#845).
+    - Added computed Stokes images and supported the analysis (profiles, contours, statistics, etc.) of them (#433).
+    - Added data type to file info and open complex image with amplitude expression (#520).
+    - Added ability to set a custom rest frequency for saving subimages. (#918).
+    - Added image fitter for multiple 2D Gaussian component fitting (#150).
+    - Added support for a custom carta-casacore script for updating casacore data in a local user directory (#961).
+    - Added support of vector field (polarization intensity/angle) calculations (#1002).
+    - Added spatial profiles for line/polyline regions (#796).
+  * Fixed
+    - Fixed problem with backend hanging rather than exiting after all sessions have disconnected (#988).
+    - Fixed handling of NaN values in downsampled spatial profiles (#987).
+    - Removed file id repetition in generated moments or PV images (#1003).
+    - Fixed linear coordinate conversion for matched images (#982).
+    - Fixed beam position angle unit displayed for CASA images (#1025).
+    - Fixed crash when saving certain PV images (#1009).
+    - Ensured that sessions are deleted correctly (#1048).
+    - Ensured that sessions are correctly assigned unique IDs (#1049).
+    - Corrected spatial range calculation to account for rotation (#1050).
+    - Fixed a bug in Stokes animation when playing backwards (#1053).
+    - Fixed inconsistent behaviour of top level folder setting (#1089).
+    - Fixed CRTF export bug for labelpos (#1012).
+    - Fixed DS9 import bug for region parameter with no unit (#1101).
+    - Fixed offset in center of offset axis of generated PV image (#1038).
+    - Fixed various memory leaks, and several memory errors uncovered by address sanitization.
+  * 3.0.0-beta.2b:
+  * Changed
+    - Removed the dependency on Intel TBB library by replacing the TBB mutexes with ones based on standard c++ ones.
+    - Replaced shared image loader pointer in the session class with a cache for multiple loaders, to avoid concurrency bugs when loading multiple images simultaneously.
+  * Added
+    - Added ability to guess file type by extension, rather than content (#1).
+    - Added support for circular/linear polarizations when generating hypercubes (#942).
+    - Added PV image generator for line regions (#794).
+  * Fixed
+    - Fixed hard crash when attempting to read files within a read-protected directory (#945).
+    - Fixed region histograms for moment images (#906).
+    - Fixed bug of duplicate histogram calculation (#905).
+    - Fixed issues when reading stokes information from the header (#942).
+    - Fixed restoring beam set from HISTORY (#935).
+    - Fixed FITS header bug for dropped keyword index (#912).
+    - Fixed DS9 export bug by increasing precision for degrees (#953).
+  * 3.0.0-beta.1b:
+  * Added
+    - Added unit test helper functions for generating FITS and HDF5 test image 
+      files.
+    - Introduced generic JSON object read/write/clearing for the REST API.
+    - Unit tests for filling spatial profiles.
+    - Added support for building on aarch64 Linux.
+    - Added directory info to file lists.
+    - Added support for using mipmapped datasets in HDF5 files to load 
+      downsampled data.
+    - Added a tile cache for loading full-resolution data from chunked HDF5 
+      files.
+    - Added mip and range options to spatial profile requests.
+    - Added support for for LINE and POLYLINE regions.
+    - Added support for fits.gz images using zlib.
+    - Added ping pong test for spectral line query.
+    - Added support for boolean columns in tables.
+    - Added support for Stokes in statistics and histogram widgets.
+    - Added spatial profile support to point regions.
+  * Changed
+    - Browser argument no longer marked as experimental.
+    - Developer code style scripts consolidated into one.
+    - Improved custom browser option so that the child process behaves 
+      consistently.
+    - The scripting interface can request a subset of a called action's return 
+      value, avoiding possible serialization problems.
+    - Changed "stokes" to "polarizations" in file info.
+  * Fixed
+    - Upgraded to uWebSockets v19.2.0 to fix garbled ICD messages (#848).
+    - Fixed issues with FITS headers processed by casacore (#460) by parsing the 
+      FITS header or HDF5 attributes directly.
+    - Added missing setting keyword for the starting folder (#857).
+    - Fixed a crash (#774) by adding a mutex lock.
+    - Improve the speed of HDF5 header parsing (#861) by using H5Aiterate2 to 
+      iterate over HDF5 attributes.
+    - Added a fallback legacy heuristic for detecting that HDF5 attributes 
+      should be interpreted as boolean.
+    - Fixed a caching bug affecting images which were changed on disk (#579).
+    - Fixed a wrapper script issue causing an invalid frontend URL to be 
+      generated on Linux without network access.
+    - Fixed control points record for polygon / line / polyline (#891).
+    - Fixed bug causing cube histogram to be generated even if it was available in an HDF5 file (#899).
+    - Fixed bug of missing cursor values for matched images (#900).
+  * Security
+    - Use a constant-time string comparison for checking token equality.
+    - Added a security token to the gRPC interface.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 17 Aug 2022 12:01:04 +0200
+
+carta-backend (2.0.0-1~focal4) focal; urgency=medium
+
+  * Rebuild with new carta-casacore.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 12 Apr 2022 14:42:33 +0200
+
+carta-backend (2.0.0-1~focal3) focal; urgency=medium
+
+  * Patched cmake configuration to detect arm64 architecture correctly on Ubuntu.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 29 Mar 2022 22:06:17 +0200
+
+carta-backend (2.0.0-1~focal2) focal; urgency=medium
+
+  * Rebuild with new carta-casacore.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 10 Mar 2022 11:01:24 +0200
+
+carta-backend (2.0.0-1~focal1) focal; urgency=medium
+
+  * v2.0: Feature enhancement and codebase maintenance (released 7th June 2021) 
+  * Multi-profile plot with the spectral profiler
+  * Progress report and cancellation when requesting a long file list
+  * Forming a Stokes hypercube at image loading stage
+  * Colorbar display in the image viewer and enhanced raster image config widget
+  * Support rectangular pixel rendering for PV image
+  * Filtering function in the spectral line query widget
+  * Enhanced FITS and CASA image support
+  * Saving subimage
+  * Searching a keyword from image header
+  * Profile fitting in the spectral profiler 
+  * Marker-based catalog rendering and performance enhancement
+  * New deployment modes
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 04 Jun 2021 11:22:13 +0200
+
+carta-backend (1.4.1+fixed1-1~focal2) focal; urgency=medium
+
+  * Rebuild with updated carta-casacore package dependencies.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Fri, 09 Apr 2021 13:58:52 +0200
+
+carta-backend (1.4.1+fixed1-1~focal1) focal; urgency=medium
+
+  * Backported default image for use by the controller.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 31 Mar 2021 13:55:00 +0200
+
+carta-backend (1.4.1-1~focal3) focal; urgency=medium
+
+  * Rebuild to add conflict with development version, which no longer renames executables and paths.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 15:55:32 +0200
+
+carta-backend (1.4.1-1~focal2) focal; urgency=medium
+
+  * Rebuild for new PPA with revised version numbering.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 16 Mar 2021 12:00:38 +0200
+
+carta-backend (1.4.1-1~focal1) focal; urgency=medium
+
+  * Initial build of release version with static dependency on uWebSockets.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 03 Mar 2021 15:35:09 +0200

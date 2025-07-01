@@ -1,0 +1,5 @@
+carta-backend for Debian
+
+This is the Debian package of the release version of the CARTA backend. The carta-backend-beta package is used for development versions.
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Wed, 03 Mar 2021 15:35:09 +0200

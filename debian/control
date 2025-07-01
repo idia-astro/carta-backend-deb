@@ -1,0 +1,20 @@
+Source: carta-backend
+Section: science
+Priority: optional
+Maintainer: Adrianna Pińska <adrianna.pinska@gmail.com>
+Build-Depends: cmake, debhelper (>=11~), dh-exec, carta-casacore-dev (>= 3.5.0+6.6.0+2024.1.18), libzfp-dev, libcfitsio-dev, libgsl-dev, libhdf5-dev, libprotobuf-dev, libpugixml-dev, libzstd-dev, pkg-config, protobuf-compiler, wcslib-dev, uuid-dev
+Standards-Version: 4.1.4
+Homepage: https://github.com/CARTAvis/carta-backend
+Vcs-Browser: https://github.com/idia-astro/carta-backend-deb
+Vcs-Git: https://github.com/idia-astro/carta-backend-deb.git
+
+Package: carta-backend
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: casacore-data
+Conflicts: carta-backend-beta
+Description: CARTA - Cube Analysis and Rendering Tool for Astronomy
+ CARTA is a next generation image visualization and analysis tool designed for ALMA, VLA, and SKA pathfinders.
+ .
+ This package provides the release version of the backend component.
