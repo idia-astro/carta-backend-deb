@@ -1,0 +1,8 @@
+usr/include/pugiconfig.hpp
+usr/include/pugixml.hpp
+usr/lib/x86_64-linux-gnu/cmake/pugixml/pugixml-config-version.cmake
+usr/lib/x86_64-linux-gnu/cmake/pugixml/pugixml-config.cmake
+usr/lib/x86_64-linux-gnu/cmake/pugixml/pugixml-targets-relwithdebinfo.cmake
+usr/lib/x86_64-linux-gnu/cmake/pugixml/pugixml-targets.cmake
+usr/lib/x86_64-linux-gnu/libpugixml.a
+usr/lib/x86_64-linux-gnu/pkgconfig/pugixml.pc
