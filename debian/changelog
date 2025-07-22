@@ -1,3 +1,11 @@
+carta-backend (5.0.1-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 5.0.1.
+  * Fixed
+    - Fixed bugs in database validation error handling which caused preferences to be wiped, and corrected preferences schema (#1485).
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Tue, 22 Jul 2025 15:49:28 +0200
+
 carta-backend (5.0.0-1~jammy1) jammy; urgency=medium
 
   * Bumped version to 5.0.0.
