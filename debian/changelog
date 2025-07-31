@@ -1,3 +1,12 @@
+carta-backend (5.0.3-1~noble1) noble; urgency=medium
+
+  * Bumped version to 5.0.3 to sync with frontend.
+  * Bumped version to 5.0.2.
+  * Fixed
+    - Fixed bug in region spectral profile with flux density statistic (#1493).
+
+-- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 31 Jul 2025 11:53:49 +0200
+
 carta-backend (5.0.1-1~noble1) noble; urgency=medium
 
   * Bumped version to 5.0.1.
