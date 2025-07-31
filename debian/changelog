@@ -5,7 +5,7 @@ carta-backend (5.0.3-1~jammy1) jammy; urgency=medium
   * Fixed
     - Fixed bug in region spectral profile with flux density statistic (#1493).
 
--- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 31 Jul 2025 11:53:49 +0200
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Thu, 31 Jul 2025 11:53:49 +0200
 
 carta-backend (5.0.1-1~jammy1) jammy; urgency=medium
 
