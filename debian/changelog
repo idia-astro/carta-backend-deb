@@ -1,3 +1,16 @@
+carta-backend (5.1.0-1~jammy1) jammy; urgency=medium
+
+  * Bumped version to 5.1.0.
+  * Fixed
+    - Fixed bug causing channel map crash (#1541).
+    - Fixed fetching of region data for other Stokes (#1551).
+    - Fixed deletion of resumed session from message task threads (#1537).
+    - Don't reallocate memory for image cache unnecessarily (#1508).
+  * Changed
+    - Excluded image cache data from core dumps on supported platforms (#1506).
+
+ -- Adrianna Pińska <adrianna.pinska@gmail.com>  Sat, 17 Jan 2026 18:07:34 +0200
+
 carta-backend (5.0.3-1~jammy1) jammy; urgency=medium
 
   * Bumped version to 5.0.3 to sync with frontend.
