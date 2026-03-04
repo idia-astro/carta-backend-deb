@@ -30,15 +30,9 @@ carta-backend (5.1.0-1~noble1) noble; urgency=medium
   * Changed
     - Excluded image cache data from core dumps on supported platforms (#1506).
 
-<<<<<<< HEAD
  -- Adrianna Pińska <adrianna.pinska@gmail.com>  Sat, 17 Jan 2026 18:50:03 +0200
 
 carta-backend (5.0.3-1~noble1) noble; urgency=medium
-=======
- -- Adrianna Pińska <adrianna.pinska@gmail.com>  Sat, 17 Jan 2026 18:07:34 +0200
-
-carta-backend (5.0.3-1~jammy1) jammy; urgency=medium
->>>>>>> ubuntu/jammy
 
   * Bumped version to 5.0.3 to sync with frontend.
   * Bumped version to 5.0.2.
