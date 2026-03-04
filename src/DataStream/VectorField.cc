@@ -113,7 +113,7 @@ void VectorField::ClearSettings() {
     _file_id = -1;
     _smoothing_factor = 0;
     _fractional = false;
-    _threshold = std::numeric_limits<double>::quiet_NaN();
+    _threshold = DOUBLE_NAN;
     _debiasing = false;
     _q_error = 0;
     _u_error = 0;
@@ -193,7 +193,7 @@ void GetTiles(int image_width, int image_height, int mip, std::vector<Tile>& til
     int tile_size_original = TILE_SIZE * mip;
     int num_tile_columns = ceil((double)image_width / tile_size_original);
     int num_tile_rows = ceil((double)image_height / tile_size_original);
-    int32_t tile_layer = Tile::MipToLayer(mip, image_width, image_height, TILE_SIZE, TILE_SIZE);
+    int32_t tile_layer = -1;
     tiles.resize(num_tile_rows * num_tile_columns);
 
     for (int j = 0; j < num_tile_rows; ++j) {

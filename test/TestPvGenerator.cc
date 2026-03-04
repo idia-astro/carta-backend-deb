@@ -19,8 +19,26 @@ using namespace carta;
 using ::testing::FloatNear;
 using ::testing::Pointwise;
 
-class PvGeneratorTest : public ::testing::Test, public ImageGenerator {
+class PvGeneratorTest : public ::testing::Test {
 public:
+    static CARTA::PvRequest PvRequest(
+        int32_t file_id, int32_t region_id, int32_t width, int z_min = -1, int32_t z_max = -1, bool reverse = false, bool keep = false) {
+        CARTA::PvRequest message;
+        message.set_file_id(file_id);
+        message.set_region_id(region_id);
+        message.set_width(width);
+
+        if (z_min >= 0 && z_max >= 0) {
+            auto spectral_range = message.mutable_spectral_range();
+            spectral_range->set_min(z_min);
+            spectral_range->set_max(z_max);
+        }
+
+        message.set_reverse(reverse);
+        message.set_keep(keep);
+        return message;
+    }
+
     static void SetPvCut(carta::RegionHandler& region_handler, int file_id, int& region_id, std::vector<float>& endpoints,
         std::shared_ptr<casacore::CoordinateSystem> csys, bool is_annotation = false) {
         // Define RegionState for line region
@@ -47,7 +65,7 @@ public:
     }
 
     static void TestAveragingWidthRange(int width, bool expected_width_range) {
-        auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+        auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
         std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
         std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
         carta::RegionHandler region_handler;
@@ -56,7 +74,7 @@ public:
         SetPvCut(region_handler, file_id, region_id, endpoints, frame->CoordinateSystem());
 
         // Request PV image
-        auto pv_request = Message::PvRequest(file_id, region_id, width);
+        auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width);
         auto progress_callback = [&](float progress) {};
         CARTA::PvResponse pv_response;
         carta::GeneratedImage pv_image;
@@ -77,7 +95,7 @@ public:
 };
 
 TEST_F(PvGeneratorTest, FitsPvImage) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image with spectral coordinate axis
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
 
@@ -98,7 +116,7 @@ TEST_F(PvGeneratorTest, FitsPvImage) {
 
     // Request PV image
     int width(3);
-    auto pv_request = Message::PvRequest(file_id, region_id, width);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -147,7 +165,7 @@ TEST_F(PvGeneratorTest, FitsPvImage) {
 }
 
 TEST_F(PvGeneratorTest, FitsPvImageHorizontalCut) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image with spectral coordinate axis
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
 
@@ -168,7 +186,7 @@ TEST_F(PvGeneratorTest, FitsPvImageHorizontalCut) {
 
     // Request PV image
     int width(1);
-    auto pv_request = Message::PvRequest(file_id, region_id, width);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -224,7 +242,7 @@ TEST_F(PvGeneratorTest, FitsPvImageHorizontalCut) {
 }
 
 TEST_F(PvGeneratorTest, FitsPvImageVerticalCut) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
 
@@ -245,7 +263,7 @@ TEST_F(PvGeneratorTest, FitsPvImageVerticalCut) {
 
     // Request PV image
     int width(1);
-    auto pv_request = Message::PvRequest(file_id, region_id, width);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -301,7 +319,7 @@ TEST_F(PvGeneratorTest, FitsPvImageVerticalCut) {
 }
 
 TEST_F(PvGeneratorTest, TestNoSpectralAxis) {
-    auto path_string = GeneratedHdf5ImagePath("10 10 10");
+    auto path_string = Hdf5Images() / "10x10x10.hdf5";
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(path_string));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
 
@@ -314,7 +332,7 @@ TEST_F(PvGeneratorTest, TestNoSpectralAxis) {
 
     // Request PV image
     int width(3);
-    auto pv_request = Message::PvRequest(file_id, region_id, width);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -333,7 +351,7 @@ TEST_F(PvGeneratorTest, AveragingWidthRange) {
 }
 
 TEST_F(PvGeneratorTest, PvImageSpectralRange) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
     auto csys = frame->CoordinateSystem();
@@ -346,7 +364,7 @@ TEST_F(PvGeneratorTest, PvImageSpectralRange) {
 
     // Request PV image
     int width(3), z_min(0), z_max(5); // first 6 channels
-    auto pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -363,7 +381,7 @@ TEST_F(PvGeneratorTest, PvImageSpectralRange) {
 }
 
 TEST_F(PvGeneratorTest, PvImageReversedAxes) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
     auto csys = frame->CoordinateSystem();
@@ -377,7 +395,7 @@ TEST_F(PvGeneratorTest, PvImageReversedAxes) {
     // Request PV image
     int width(3), z_min(0), z_max(9); // all channels
     bool reverse(false);
-    auto pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -388,7 +406,7 @@ TEST_F(PvGeneratorTest, PvImageReversedAxes) {
 
     // Request reverse PV image with same cut
     reverse = true;
-    pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse);
+    pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse);
     CARTA::PvResponse rev_pv_response;
     carta::GeneratedImage rev_pv_image;
     region_handler.CalculatePvImage(pv_request, frame, progress_callback, rev_pv_response, rev_pv_image);
@@ -403,7 +421,7 @@ TEST_F(PvGeneratorTest, PvImageReversedAxes) {
 }
 
 TEST_F(PvGeneratorTest, PvImageKeep) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
     auto csys = frame->CoordinateSystem();
@@ -417,41 +435,41 @@ TEST_F(PvGeneratorTest, PvImageKeep) {
     // Request PV image
     int width(3), z_min(0), z_max(9); // all channels
     bool reverse(false), keep(false);
-    auto pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
     region_handler.CalculatePvImage(pv_request, frame, progress_callback, pv_response, pv_image);
-    // Check PV image file_id and name
-    int index(0);
+
+    // Check PV image success and name
     EXPECT_TRUE(pv_response.success());
     EXPECT_TRUE(pv_image.name.find("pv.fits") != std::string::npos);
 
-    // Request PV image, keeping the first
+    // Request PV image for same region, keeping the first
     keep = true;
-    pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     CARTA::PvResponse pv_response2;
     carta::GeneratedImage pv_image2;
     region_handler.CalculatePvImage(pv_request, frame, progress_callback, pv_response2, pv_image2);
-    // Check PV image file_id and name
-    index++;
+    // Check PV image success and name
     EXPECT_TRUE(pv_response2.success());
     EXPECT_TRUE(pv_image2.name.find("pv1.fits") != std::string::npos);
 
-    // Request PV image, replace all and reset index
+    // Move region and request PV image, replacing previous PV images
     keep = false;
-    pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    endpoints = {0.0, 9.0, 9.0, 0.0};
+    SetPvCut(region_handler, file_id, region_id, endpoints, csys);
+    pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     CARTA::PvResponse pv_response3;
     carta::GeneratedImage pv_image3;
     region_handler.CalculatePvImage(pv_request, frame, progress_callback, pv_response3, pv_image3);
-    // Check PV image file_id and name
-    index = 0;
+    // Check PV image success and name
     EXPECT_TRUE(pv_response3.success());
     EXPECT_TRUE(pv_image3.name.find("pv.fits") != std::string::npos);
 }
 
 TEST_F(PvGeneratorTest, FitsPvAnnotationLine) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
     carta::RegionHandler region_handler;
@@ -466,7 +484,7 @@ TEST_F(PvGeneratorTest, FitsPvAnnotationLine) {
     // Request PV image - should fail
     int width(3), z_min(0), z_max(9); // all channels
     bool reverse(false), keep(false);
-    auto pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -478,7 +496,7 @@ TEST_F(PvGeneratorTest, FitsPvAnnotationLine) {
 }
 
 TEST_F(PvGeneratorTest, FitsPvPolyLine) {
-    auto image_path = FileFinder::FitsImagePath("noise_3d.fits"); // 10x10x10 image
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
     std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
     std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
     carta::RegionHandler region_handler;
@@ -492,7 +510,7 @@ TEST_F(PvGeneratorTest, FitsPvPolyLine) {
     // Request PV image
     int width(3), z_min(0), z_max(9); // all channels
     bool reverse(false), keep(false);
-    auto pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     auto progress_callback = [&](float progress) {};
     CARTA::PvResponse pv_response;
     carta::GeneratedImage pv_image;
@@ -512,7 +530,7 @@ TEST_F(PvGeneratorTest, FitsPvPolyLine) {
     region_id = -1;
     is_annotation = true;
     SetPvCut(region_handler, file_id, region_id, endpoints, csys, is_annotation);
-    pv_request = Message::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
+    pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse, keep);
     CARTA::PvResponse pv_response2;
     carta::GeneratedImage pv_image2;
     region_handler.CalculatePvImage(pv_request, frame, progress_callback, pv_response2, pv_image2);
@@ -520,4 +538,49 @@ TEST_F(PvGeneratorTest, FitsPvPolyLine) {
     EXPECT_FALSE(pv_response2.success());
     EXPECT_FALSE(pv_response2.cancel());
     EXPECT_EQ(pv_image2.image.get(), nullptr);
+}
+
+TEST_F(PvGeneratorTest, PvPreview) {
+    auto image_path = FitsImages() / "noise_3d.fits"; // 10x10x10 image
+    std::shared_ptr<carta::FileLoader> loader(carta::FileLoader::GetLoader(image_path));
+    std::shared_ptr<Frame> frame(new Frame(0, loader, "0"));
+    auto csys = frame->CoordinateSystem();
+
+    // Set line region [0, 0] to [9, 9]
+    carta::RegionHandler region_handler;
+    int file_id(0), region_id(-1);
+    std::vector<float> endpoints = {0.0, 0.0, 9.0, 9.0};
+    SetPvCut(region_handler, file_id, region_id, endpoints, csys);
+
+    // Request PV preview
+    int width(3), z_min(0), z_max(9); // all channels
+    bool reverse(false);
+    auto pv_request = PvGeneratorTest::PvRequest(file_id, region_id, width, z_min, z_max, reverse);
+    auto preview_settings = pv_request.mutable_preview_settings();
+    preview_settings->set_preview_id(0);
+    preview_settings->set_region_id(-1); // box region for SubImage to fit in memory, not needed
+    preview_settings->set_rebin_xy(1);
+    preview_settings->set_rebin_z(1);
+    preview_settings->set_compression_type(CARTA::CompressionType::ZFP);
+    preview_settings->set_image_compression_quality(11);
+    preview_settings->set_animation_compression_quality(9);
+
+    auto progress_callback = [&](float progress) {};
+    CARTA::PvResponse pv_response;
+    carta::GeneratedImage pv_image;
+    region_handler.CalculatePvImage(pv_request, frame, progress_callback, pv_response, pv_image);
+    EXPECT_TRUE(pv_response.success());
+    EXPECT_FALSE(pv_response.cancel());
+    EXPECT_TRUE(pv_response.has_preview_data());
+    auto preview_data = pv_response.preview_data();
+    EXPECT_EQ(preview_data.preview_id(), 0);
+    EXPECT_FALSE(preview_data.has_image_info()); // added afterwards by Session
+    EXPECT_FALSE(preview_data.image_data().empty());
+    EXPECT_FALSE(preview_data.nan_encodings().empty());
+    EXPECT_EQ(preview_data.width(), 13);
+    EXPECT_EQ(preview_data.height(), 10);
+    EXPECT_EQ(preview_data.compression_type(), CARTA::CompressionType::ZFP);
+    EXPECT_EQ(preview_data.compression_quality(), 11);
+    EXPECT_TRUE(preview_data.has_histogram_bounds());
+    EXPECT_TRUE(preview_data.has_histogram());
 }

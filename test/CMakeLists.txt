@@ -32,8 +32,6 @@ else ()
     message(FATAL_ERROR "Could not find HDF5.")
 endif ()
 
-find_program(CONVERTER, fits2idia)
-
 set(BINARY ${CMAKE_PROJECT_NAME}_tests)
 set(TEST_SOURCES
         CommonTestUtilities.cc
@@ -44,8 +42,8 @@ set(TEST_SOURCES
         TestExprImage.cc
         TestFileInfo.cc
         TestFileList.cc
-        TestFitsTable.cc
         TestFitsImage.cc
+        TestFitsTable.cc
         TestHdf5Attributes.cc
         TestHdf5Image.cc
         TestHistogram.cc
@@ -56,15 +54,15 @@ set(TEST_SOURCES
         TestProgramSettings.cc
         TestPvGenerator.cc
         TestRegion.cc
-        TestRegionImportExport.cc
         TestRegionHistogram.cc
+        TestRegionImportExport.cc
         TestRegionMatched.cc
         TestRegionSpatialProfiles.cc
         TestRegionSpectralProfiles.cc
         TestRegionStats.cc
         TestRestApi.cc
         TestTileEncoding.cc
-	TestVoTable.cc
+        TestVoTable.cc
         Util/TestUtilCasacore.cc
         Util/TestUtilFile.cc
         Util/TestUtilImage.cc
@@ -79,9 +77,6 @@ list(REMOVE_ITEM SOURCES REMOVE_ITEM ../src/Main/Main.cc)
 
 # Copy test data to build directory
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-# Copy image generator to build directory
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../third-party/image-generator/make_image.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
 add_executable(${BINARY} ${SOURCES} ${TEST_SOURCES})
 add_test(NAME ${BINARY} COMMAND ${BINARY})
