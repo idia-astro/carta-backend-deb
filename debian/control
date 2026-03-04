@@ -17,4 +17,4 @@ Conflicts: carta-backend-beta
 Description: CARTA - Cube Analysis and Rendering Tool for Astronomy
  CARTA is a next generation image visualization and analysis tool designed for ALMA, VLA, and SKA pathfinders.
  .
- This package provides the release version of the backend component.
+ This package provides the backend component.
