@@ -32,11 +32,11 @@ public:
 
 TEST_F(RegionMatchedTest, TestMatchedImageRectangleLCRegion) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -56,7 +56,7 @@ TEST_F(RegionMatchedTest, TestMatchedImageRectangleLCRegion) {
     file_id = 1;
     csys = frame1->CoordinateSystem();
     auto image_shape = frame1->ImageShape();
-    auto lc_region = region->GetImageRegion(file_id, csys, image_shape);
+    auto lc_region = region->GetLCRegion(file_id, csys, image_shape);
 
     // Check LCRegion
     ASSERT_TRUE(lc_region); // shared_ptr<casacore::LCRegion>
@@ -67,11 +67,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageRectangleLCRegion) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageRotboxLCRegion) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -91,7 +91,7 @@ TEST_F(RegionMatchedTest, TestMatchedImageRotboxLCRegion) {
     file_id = 1;
     csys = frame1->CoordinateSystem();
     auto image_shape = frame1->ImageShape();
-    auto lc_region = region->GetImageRegion(file_id, csys, image_shape);
+    auto lc_region = region->GetLCRegion(file_id, csys, image_shape);
 
     // Check LCRegion
     ASSERT_TRUE(lc_region); // shared_ptr<casacore::LCRegion>
@@ -102,11 +102,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageRotboxLCRegion) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageEllipseLCRegion) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -126,7 +126,7 @@ TEST_F(RegionMatchedTest, TestMatchedImageEllipseLCRegion) {
     file_id = 1;
     csys = frame1->CoordinateSystem();
     auto image_shape = frame1->ImageShape();
-    auto lc_region = region->GetImageRegion(file_id, csys, image_shape);
+    auto lc_region = region->GetLCRegion(file_id, csys, image_shape);
 
     // Check LCRegion
     ASSERT_TRUE(lc_region); // shared_ptr<casacore::LCRegion>
@@ -137,11 +137,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageEllipseLCRegion) {
 
 TEST_F(RegionMatchedTest, TestMatchedImagePolygonLCRegion) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -161,7 +161,7 @@ TEST_F(RegionMatchedTest, TestMatchedImagePolygonLCRegion) {
     int file_id1(1);
     auto csys1 = frame1->CoordinateSystem();
     auto image_shape = frame1->ImageShape();
-    auto lc_region = region->GetImageRegion(file_id1, csys1, image_shape);
+    auto lc_region = region->GetLCRegion(file_id1, csys1, image_shape);
 
     // Check LCRegion
     ASSERT_TRUE(lc_region); // shared_ptr<casacore::LCRegion>
@@ -177,17 +177,17 @@ TEST_F(RegionMatchedTest, TestMatchedImagePolygonLCRegion) {
     region = region_handler.GetRegion(region_id);
     ASSERT_TRUE(region); // shared_ptr<Region>
     // Get Region as 2D LCRegion in frame1
-    lc_region = region->GetImageRegion(file_id1, csys1, image_shape);
+    lc_region = region->GetLCRegion(file_id1, csys1, image_shape);
     ASSERT_TRUE(lc_region); // shared_ptr<casacore::LCRegion>
 }
 
 TEST_F(RegionMatchedTest, TestMatchedImagePointRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -226,11 +226,11 @@ TEST_F(RegionMatchedTest, TestMatchedImagePointRecord) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageLineRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -269,11 +269,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageLineRecord) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageRectangleRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -317,11 +317,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageRectangleRecord) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageRotboxRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -370,11 +370,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageRotboxRecord) {
 
 TEST_F(RegionMatchedTest, TestMatchedImageEllipseRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 
@@ -411,11 +411,11 @@ TEST_F(RegionMatchedTest, TestMatchedImageEllipseRecord) {
 
 TEST_F(RegionMatchedTest, TestMatchedImagePolygonRecord) {
     // frame 0
-    std::string image_path0 = FileFinder::FitsImagePath("noise_10px_10px.fits");
+    auto image_path0 = FitsImages() / "noise_10px_10px.fits";
     std::shared_ptr<carta::FileLoader> loader0(carta::FileLoader::GetLoader(image_path0));
     std::shared_ptr<Frame> frame0(new Frame(0, loader0, "0"));
     // frame 1
-    std::string image_path1 = FileFinder::Hdf5ImagePath("noise_10px_10px.hdf5");
+    auto image_path1 = Hdf5Images() / "noise_10px_10px.hdf5";
     std::shared_ptr<carta::FileLoader> loader1(carta::FileLoader::GetLoader(image_path1));
     std::shared_ptr<Frame> frame1(new Frame(0, loader1, "0"));
 

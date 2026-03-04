@@ -8,6 +8,7 @@
 
 #include "../Logger/Logger.h"
 #include "Util/Image.h"
+#include "Util/Nan.h"
 
 namespace carta {
 
@@ -35,7 +36,7 @@ void Hdf5Loader::AllocateImage(const std::string& hdu) {
         // Load swizzled image lattice
         if (HasData(FileInfo::Data::SWIZZLED)) {
             _swizzled_image = std::unique_ptr<casacore::HDF5Lattice<float>>(
-                new casacore::HDF5Lattice<float>(casacore::CountedPtr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
+                new casacore::HDF5Lattice<float>(std::shared_ptr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
                     DataSetToString(FileInfo::Data::SWIZZLED), selected_hdu));
         }
 
@@ -50,7 +51,7 @@ void Hdf5Loader::AllocateImage(const std::string& hdu) {
                 std::smatch match;
                 if (std::regex_match(name, match, re) && match.size() > 1) {
                     _mipmaps[std::stoi(match.str(1))] = std::unique_ptr<casacore::HDF5Lattice<float>>(
-                        new casacore::HDF5Lattice<float>(casacore::CountedPtr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
+                        new casacore::HDF5Lattice<float>(std::shared_ptr<casacore::HDF5File>(new casacore::HDF5File(_filename)),
                             fmt::format("MipMaps/DATA/{}", name), selected_hdu));
                 }
             }
@@ -368,7 +369,7 @@ bool Hdf5Loader::GetRegionSpectralData(int region_id, const AxisRange& spectral_
                         case CARTA::StatsType::NumPixels:
                             break;
                         default:
-                            kv.second[z] = NAN;
+                            kv.second[z] = DOUBLE_NAN;
                             break;
                     }
                 }
